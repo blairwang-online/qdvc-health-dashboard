@@ -45,7 +45,7 @@ def _reference_table_html() -> str:
             )
         rows += (
             f'<tr><th class="ref-rowhead">'
-            f'<span class="ref-tag" style="{_pill_style(_BEGIN_BG[bi])}">{html.escape(begin_lbl)}</span>'
+            f'<span class="ref-tag ref-tag-begin" style="{_pill_style(_BEGIN_BG[bi])}">{html.escape(begin_lbl)}</span>'
             f'<span class="ref-sub">{html.escape(sub)}</span></th>{cells}</tr>'
         )
     return (
@@ -495,6 +495,14 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     font-family:ui-monospace,monospace; font-size:12px; font-weight:600;
     line-height:1.3;
   }}
+  /* Begin-archetype tag: forward-pointing pentagon ("|||>") whose point aims
+     at the persona cells to its right. Block-level so multi-line labels form a
+     consistent shape (a rectangle with a point) rather than an uneven pill. */
+  table.reference .ref-tag-begin {{
+    display:block; border-radius:8px; padding:7px 20px 7px 12px;
+    clip-path:polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+    text-align:left; white-space:normal;
+  }}
   table.reference .ref-sub {{
     display:block; font-family:ui-monospace,monospace; font-size:10px;
     font-weight:400; letter-spacing:.04em; color:var(--muted); margin-top:4px;
@@ -631,13 +639,13 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   </section>
 
   <section id="sec-archetypes" class="panel navsection">
-    <h2>Sleep archetypes — past 7 days</h2>
+    <h2>Archetypes and personas — past 7 days</h2>
     <p class="cap">Each night classified by when you fell asleep and when you woke.</p>
     <table class="archetype" id="archetypeTable">
       <thead>
         <tr>
           <th>Date</th><th>Asleep</th><th>Awake</th>
-          <th>Begin archetype</th><th>End archetype</th><th>Composite</th>
+          <th>Begin archetype</th><th>End archetype</th><th>Sleep persona</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -647,7 +655,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
       Sun 28 Jun.</p>
 
     <div class="ref-wrap">
-      <div class="chart-title">Composite reference — how the two archetypes combine</div>
+      <div class="chart-title">Sleep persona reference — how the two archetypes combine</div>
       {reference_table}
     </div>
   </section>
@@ -678,7 +686,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
         <a href="#sec-overview"   data-target="sec-overview">Overview</a>
         <a href="#sec-decision"   data-target="sec-decision">Decision support</a>
         <a href="#sec-timing"     data-target="sec-timing">Sleep timing &amp; trend</a>
-        <a href="#sec-archetypes" data-target="sec-archetypes">Sleep archetypes</a>
+        <a href="#sec-archetypes" data-target="sec-archetypes">Archetypes and personas</a>
         <a href="#sec-misc"       data-target="sec-misc">Miscellaneous</a>
         <button id="paletteOpen" class="side-nav-btn" type="button">Colour Palette</button>
       </nav>

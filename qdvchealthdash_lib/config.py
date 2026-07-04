@@ -36,8 +36,8 @@ END_ARCHETYPES = [
 
 # At-a-glance threshold subtitles shown under each archetype in the reference
 # table (bounds are approximate; inclusivity is not indicated by design).
-BEGIN_SUBTITLES = ["before midnight", "12AM–3AM", "after 3AM"]
-END_SUBTITLES   = ["before 6AM", "6AM–8AM", "after 8AM"]
+BEGIN_SUBTITLES = ["bedtime before midnight", "bedtime 12AM–3AM", "bedtime after 3AM"]
+END_SUBTITLES   = ["wakeup before 6AM", "wakeup 6AM–8AM", "wakeup after 8AM"]
 
 # Bounds (in minutes on a continuous night axis, midnight = 1440) used ONLY to
 # estimate the range of hours slept per cell in the reference table. Open-ended
