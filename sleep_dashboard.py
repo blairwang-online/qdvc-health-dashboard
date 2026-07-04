@@ -176,7 +176,9 @@ def _weekly_series(nights: list[Night], weeks_back: int = 8) -> list[dict]:
         monday = dt.date.fromisocalendar(yr, wk, 1)
 
         out.append({
-            "label": monday.isoformat()[5:],   # MM-DD of week start
+            "label": monday.isoformat()[5:],   # MM-DD of week start (kept for ref)
+            "dow": "Week of",
+            "dm": monday.strftime("%-d %b"),    # e.g. "22 Jun"
             "week": f"{yr}-W{wk:02d}",
             "nights": len(group),
             # Means
@@ -270,6 +272,8 @@ def analyse(nights: list[Night]) -> dict:
         series.append(
             {
                 "date": n.wake_date.isoformat(),
+                "dow": n.wake_date.strftime("%A"),          # e.g. "Sunday"
+                "dm": n.wake_date.strftime("%-d %b"),       # e.g. "28 Jun"
                 "duration": round(n.duration_h, 2),
                 "rolling": round(statistics.mean(window), 2),
                 "bed": _fmt_clock_from_noon(bed_m),
@@ -400,17 +404,28 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   .panel h2 {{ font-size:19px; margin:0 0 2px; font-weight:600; }}
   .panel p.cap {{ margin:0 0 16px; color:var(--muted); font-size:13.5px; }}
 
-  .tabs {{ display:flex; gap:6px; margin:4px 0 20px;
-    border-bottom:1px solid var(--line); }}
-  .tab {{
-    appearance:none; border:0; background:transparent; cursor:pointer;
-    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12.5px;
-    letter-spacing:.03em; color:var(--muted); padding:8px 14px;
-    border-bottom:2px solid transparent; margin-bottom:-1px; transition:.15s;
+  .tabs {{
+    display:inline-flex; gap:4px; margin:6px 0 22px; padding:4px;
+    background:#eef0f7; border:1px solid var(--line); border-radius:12px;
   }}
-  .tab:hover {{ color:var(--ink); }}
-  .tab.active {{ color:var(--dawn1); border-bottom-color:var(--dawn2); font-weight:600; }}
-  .tab:focus-visible {{ outline:2px solid var(--dawn2); outline-offset:2px; border-radius:4px; }}
+  .tab {{
+    appearance:none; border:1px solid transparent; cursor:pointer;
+    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12.5px;
+    letter-spacing:.02em; color:var(--muted); padding:8px 16px;
+    border-radius:9px; transition:all .15s ease; white-space:nowrap;
+  }}
+  .tab:hover {{ color:var(--ink); background:rgba(255,255,255,.55); }}
+  .tab.active {{
+    color:var(--dawn1); font-weight:600; background:var(--card);
+    border-color:var(--line);
+    box-shadow:0 1px 2px rgba(26,34,56,.08), 0 2px 6px rgba(58,74,140,.10);
+  }}
+  .tab.active::before {{
+    content:""; display:inline-block; width:7px; height:7px; border-radius:50%;
+    margin-right:7px; vertical-align:middle;
+    background:linear-gradient(135deg,var(--dawn2),var(--dawn3));
+  }}
+  .tab:focus-visible {{ outline:2px solid var(--dawn2); outline-offset:2px; }}
   .chart-block {{ margin-top:8px; }}
   .chart-block + .chart-block {{ margin-top:26px; padding-top:22px;
     border-top:1px dashed var(--line); }}
@@ -421,6 +436,8 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   .cols {{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }}
   svg {{ display:block; width:100%; height:auto; overflow:visible; }}
   .axis {{ font-family:ui-monospace,monospace; font-size:10.5px; fill:var(--muted); }}
+  .axis-top {{ font-weight:600; fill:var(--ink); }}
+  .axis-date {{ fill:var(--muted); }}
   .warn {{ font-size:13px; color:var(--muted); margin-top:8px; }}
   .warn summary {{ cursor:pointer; }}
   .warn ul {{ margin:8px 0 0; padding-left:18px; }}
@@ -544,6 +561,29 @@ function el(tag,attrs){{const e=document.createElementNS(SVGNS,tag);
   for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}}
 function css(v){{return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}}
 
+// Band scale: each item gets an equal-width slot; bars are centred in their
+// slot and never exceed it. Endpoints stay fully inside the plot area (unlike
+// point spacing, which pins the first/last item to the margins and lets wide
+// bars bleed out when there are few items).
+function bandScale(n, mL, iw){{
+  const slot = iw / Math.max(1, n);
+  return {{
+    slot,
+    center: i => mL + slot * (i + 0.5),
+    barWidth: Math.max(2, Math.min(slot * 0.62, 64)),  // capped so 1–2 items look sane
+  }};
+}}
+
+// Two-line x-axis tick: weekday/"Week of" on top, date beneath.
+function twoLineLabel(svg, cx, yBase, top, bottom){{
+  const t1 = el('text', {{x:cx, y:yBase, 'text-anchor':'middle'}});
+  t1.setAttribute('class','axis axis-top'); t1.textContent = top;
+  svg.appendChild(t1);
+  const t2 = el('text', {{x:cx, y:yBase + 13, 'text-anchor':'middle'}});
+  t2.setAttribute('class','axis axis-date'); t2.textContent = bottom;
+  svg.appendChild(t2);
+}}
+
 // ---- Clock helpers (minutes-since-noon -> "HH:MM") ---------------------- //
 function clockFromNoon(mins){{
   let total=Math.round(mins)+720; total=((total%1440)+1440)%1440;
@@ -559,7 +599,7 @@ function buildView(view){{
       durNote:'Hours per night; line is the 7-night rolling average.',
       clockNote:'Each bar spans bedtime to wake time for that night.',
       items:s.map(d=>({{
-        label:d.date.slice(5), duration:d.duration, rolling:d.rolling,
+        dow:d.dow, dm:d.dm, duration:d.duration, rolling:d.rolling,
         bed_min:d.bed_min, wake_min:d.wake_min, bed:d.bed, wake:d.wake
       }}))
     }};
@@ -573,7 +613,7 @@ function buildView(view){{
     durNote:word+' hours slept per week (last 8 weeks).',
     clockNote:word+' bedtime to '+word.toLowerCase()+' wake time, per week.',
     items:A.weekly.map(w=>({{
-      label:w.label, duration:w[agg.d], rolling:null,
+      dow:w.dow, dm:w.dm, duration:w[agg.d], rolling:null,
       bed_min:w[agg.b], wake_min:w[agg.w], bed:w[agg.bc], wake:w[agg.wc],
       nights:w.nights
     }}))
@@ -585,10 +625,11 @@ function renderDuration(v){{
   const s=v.items, host=document.getElementById('trend');
   host.innerHTML='';
   if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
-  const W=980,H=300,mL=42,mR=14,mT=14,mB=34, iw=W-mL-mR, ih=H-mT-mB;
+  const W=980,H=310,mL=42,mR=14,mT=14,mB=48, iw=W-mL-mR, ih=H-mT-mB;
   const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
   const maxD=Math.max(10, Math.ceil(Math.max(...s.map(d=>d.duration))));
-  const x=i=> mL + (s.length<=1?iw/2:i*iw/(s.length-1));
+  const B=bandScale(s.length, mL, iw);
+  const cx=i=>B.center(i);
   const y=val=> mT + ih - (val/maxD)*ih;
   // target band 7-9h
   svg.appendChild(el('rect',{{x:mL,y:y(9),width:iw,height:y(7)-y(9),
@@ -599,24 +640,22 @@ function renderDuration(v){{
     const t=el('text',{{x:mL-8,y:y(h)+3,'text-anchor':'end'}});
     t.setAttribute('class','axis'); t.textContent=h+'h'; svg.appendChild(t);
   }}
-  const bw=Math.max(2, iw/s.length*0.6);
   s.forEach((d,i)=>{{
-    svg.appendChild(el('rect',{{x:x(i)-bw/2,y:y(d.duration),
-      width:bw,height:ih-(y(d.duration)-mT),
+    svg.appendChild(el('rect',{{x:cx(i)-B.barWidth/2,y:y(d.duration),
+      width:B.barWidth,height:ih-(y(d.duration)-mT),
       fill:css('--dawn2'),opacity:v.hasRolling?0.16:0.55,rx:2}}));
   }});
   // line: rolling avg for last7, else connect the weekly points
   let path='';
   s.forEach((d,i)=>{{const val=v.hasRolling?d.rolling:d.duration;
-    path+=(i?'L':'M')+x(i)+' '+y(val);}});
+    path+=(i?'L':'M')+cx(i)+' '+y(val);}});
   svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
     'stroke-width':2.5,'stroke-linejoin':'round',
     opacity:v.hasRolling?1:0.5,
     'stroke-dasharray':v.hasRolling?'':'5 4'}}));
-  const step=Math.max(1,Math.floor(s.length/8));
+  const step=Math.max(1,Math.ceil(s.length/8));
   s.forEach((d,i)=>{{ if(i%step && i!==s.length-1) return;
-    const t=el('text',{{x:x(i),y:H-12,'text-anchor':'middle'}});
-    t.setAttribute('class','axis'); t.textContent=d.label; svg.appendChild(t);
+    twoLineLabel(svg, cx(i), H-24, d.dow, d.dm);
   }});
   host.appendChild(svg);
 }}
@@ -626,43 +665,40 @@ function renderClock(v){{
   const s=v.items, host=document.getElementById('clock');
   host.innerHTML='';
   if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
-  const W=980,H=300,mL=52,mR=14,mT=14,mB=34, iw=W-mL-mR, ih=H-mT-mB;
+  const W=980,H=310,mL=52,mR=14,mT=14,mB=48, iw=W-mL-mR, ih=H-mT-mB;
   const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
-  // y domain from data (minutes-since-noon), padded to whole hours.
+  // defs gradient (bedtime warm at bottom -> wake cool at top)
+  const defs=el('defs',{{}});
+  const lg=el('linearGradient',{{id:'barGrad',x1:'0',y1:'0',x2:'0',y2:'1'}});
+  lg.appendChild(el('stop',{{offset:'0','stop-color':'var(--dawn3)'}}));
+  lg.appendChild(el('stop',{{offset:'1','stop-color':'var(--dawn1)'}}));
+  defs.appendChild(lg); svg.appendChild(defs);
+  // y domain from data (minutes-since-noon), padded to whole 2-hour marks.
   let lo=Math.min(...s.map(d=>d.bed_min)), hi=Math.max(...s.map(d=>d.wake_min));
   lo=Math.floor((lo-30)/120)*120; hi=Math.ceil((hi+30)/120)*120;
   const y=m=> mT + ih - ((m-lo)/(hi-lo))*ih;   // larger minutes-since-noon (later) -> higher on screen
-  // gridlines every 2 hours, labelled as clock time
   for(let m=lo;m<=hi;m+=120){{
     svg.appendChild(el('line',{{x1:mL,y1:y(m),x2:W-mR,y2:y(m),
       stroke:css('--line'),'stroke-width':1}}));
     const t=el('text',{{x:mL-8,y:y(m)+3,'text-anchor':'end'}});
     t.setAttribute('class','axis'); t.textContent=clockFromNoon(m); svg.appendChild(t);
   }}
-  const x=i=> mL + (s.length<=1?iw/2:i*iw/(s.length-1));
-  const bw=Math.max(3, iw/s.length*0.55);
+  const B=bandScale(s.length, mL, iw);
+  const cx=i=>B.center(i);
   s.forEach((d,i)=>{{
     const yTop=y(d.wake_min), yBot=y(d.bed_min);   // wake is later -> smaller y (higher up)
-    const grad='barGrad';
-    svg.appendChild(el('rect',{{x:x(i)-bw/2,y:yTop,width:bw,
+    svg.appendChild(el('rect',{{x:cx(i)-B.barWidth/2,y:yTop,width:B.barWidth,
       height:Math.max(1,yBot-yTop),rx:3,fill:'url(#barGrad)',opacity:0.9}}));
   }});
   // subtle centre line tracking mid-sleep
   let path='';
   s.forEach((d,i)=>{{const mid=(d.bed_min+d.wake_min)/2;
-    path+=(i?'L':'M')+x(i)+' '+y(mid);}});
+    path+=(i?'L':'M')+cx(i)+' '+y(mid);}});
   svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
     'stroke-width':1.5,opacity:0.35,'stroke-dasharray':'3 4'}}));
-  // defs gradient (bedtime warm at bottom -> wake cool at top)
-  const defs=el('defs',{{}});
-  const lg=el('linearGradient',{{id:'barGrad',x1:'0',y1:'0',x2:'0',y2:'1'}});
-  lg.appendChild(el('stop',{{offset:'0','stop-color':'var(--dawn3)'}}));
-  lg.appendChild(el('stop',{{offset:'1','stop-color':'var(--dawn1)'}}));
-  defs.appendChild(lg); svg.insertBefore(defs, svg.firstChild);
-  const step=Math.max(1,Math.floor(s.length/8));
+  const step=Math.max(1,Math.ceil(s.length/8));
   s.forEach((d,i)=>{{ if(i%step && i!==s.length-1) return;
-    const t=el('text',{{x:x(i),y:H-12,'text-anchor':'middle'}});
-    t.setAttribute('class','axis'); t.textContent=d.label; svg.appendChild(t);
+    twoLineLabel(svg, cx(i), H-24, d.dow, d.dm);
   }});
   host.appendChild(svg);
 }}
