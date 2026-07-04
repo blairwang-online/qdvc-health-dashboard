@@ -39,50 +39,66 @@ def _tat_config() -> dict:
     }
 
 
-def _weekly_series(nights: list[Night], weeks_back: int = 8) -> list[dict]:
+def _agg_group_stats(group: list[Night], dow_label: str, dm_label: str,
+                     key: str) -> dict:
+    """Mean/median bedtime, waketime (minutes-since-noon + clock) and derived
+    duration for a group of nights. Shared by the weekly and monthly series."""
+    beds = [_minutes_since_noon(n.start) for n in group]
+    durs = [n.duration_h for n in group]
+    mean_bed = statistics.mean(beds)
+    med_bed = statistics.median(beds)
+    mean_dur_min = statistics.mean(durs) * 60
+    med_dur_min = statistics.median(durs) * 60
+    return {
+        "dow": dow_label,
+        "dm": dm_label,
+        "key": key,
+        "nights": len(group),
+        # Means
+        "mean_bed_min": round(mean_bed, 1),
+        "mean_wake_min": round(mean_bed + mean_dur_min, 1),
+        "mean_dur": round(mean_dur_min / 60, 2),
+        "mean_bed": _fmt_clock_from_noon(mean_bed),
+        "mean_wake": _fmt_clock_from_noon(mean_bed + mean_dur_min),
+        # Medians
+        "med_bed_min": round(med_bed, 1),
+        "med_wake_min": round(med_bed + med_dur_min, 1),
+        "med_dur": round(med_dur_min / 60, 2),
+        "med_bed": _fmt_clock_from_noon(med_bed),
+        "med_wake": _fmt_clock_from_noon(med_bed + med_dur_min),
+    }
+
+
+def _weekly_series(nights: list[Night], weeks_back: int = 12) -> list[dict]:
     """Aggregate nights into ISO weeks, returning the last `weeks_back` weeks
-    (chronological). Each entry carries both mean and median bedtime/waketime
-    (as minutes-since-noon and formatted clock strings) plus the derived
-    duration for each aggregation."""
+    (chronological), each with mean/median bedtime, waketime, and duration."""
     by_week: dict[tuple[int, int], list[Night]] = defaultdict(list)
     for n in nights:
         iso = n.wake_date.isocalendar()
         by_week[(iso[0], iso[1])].append(n)
 
-    keys = sorted(by_week)[-weeks_back:]
     out: list[dict] = []
-    for (yr, wk) in keys:
-        group = by_week[(yr, wk)]
-        beds = [_minutes_since_noon(n.start) for n in group]
-        durs = [n.duration_h for n in group]  # minutes below
+    for (yr, wk) in sorted(by_week)[-weeks_back:]:
+        monday = dt.date.fromisocalendar(yr, wk, 1)   # week-start date for label
+        out.append(_agg_group_stats(
+            by_week[(yr, wk)], "Week of", monday.strftime("%-d %b"),
+            f"{yr}-W{wk:02d}"))
+    return out
 
-        mean_bed = statistics.mean(beds)
-        med_bed = statistics.median(beds)
-        mean_dur_min = statistics.mean(durs) * 60
-        med_dur_min = statistics.median(durs) * 60
 
-        # Monday date of the ISO week, for the axis label.
-        monday = dt.date.fromisocalendar(yr, wk, 1)
+def _monthly_series(nights: list[Night], months_back: int = 12) -> list[dict]:
+    """Aggregate nights into calendar months, returning the last `months_back`
+    months (chronological), each with mean/median bedtime, waketime, duration."""
+    by_month: dict[tuple[int, int], list[Night]] = defaultdict(list)
+    for n in nights:
+        by_month[(n.wake_date.year, n.wake_date.month)].append(n)
 
-        out.append({
-            "label": monday.isoformat()[5:],   # MM-DD of week start (kept for ref)
-            "dow": "Week of",
-            "dm": monday.strftime("%-d %b"),    # e.g. "22 Jun"
-            "week": f"{yr}-W{wk:02d}",
-            "nights": len(group),
-            # Means
-            "mean_bed_min": round(mean_bed, 1),
-            "mean_wake_min": round(mean_bed + mean_dur_min, 1),
-            "mean_dur": round(mean_dur_min / 60, 2),
-            "mean_bed": _fmt_clock_from_noon(mean_bed),
-            "mean_wake": _fmt_clock_from_noon(mean_bed + mean_dur_min),
-            # Medians
-            "med_bed_min": round(med_bed, 1),
-            "med_wake_min": round(med_bed + med_dur_min, 1),
-            "med_dur": round(med_dur_min / 60, 2),
-            "med_bed": _fmt_clock_from_noon(med_bed),
-            "med_wake": _fmt_clock_from_noon(med_bed + med_dur_min),
-        })
+    out: list[dict] = []
+    for (yr, mo) in sorted(by_month)[-months_back:]:
+        first = dt.date(yr, mo, 1)
+        out.append(_agg_group_stats(
+            by_month[(yr, mo)], "Month of", first.strftime("%b %Y"),
+            f"{yr}-{mo:02d}"))
     return out
 
 
@@ -175,7 +191,8 @@ def analyse(nights: list[Night]) -> dict:
         )
 
     # Weekly aggregations (mean & median) for the last 8 ISO weeks present.
-    weekly = _weekly_series(nights, weeks_back=8)
+    weekly = _weekly_series(nights, weeks_back=12)
+    monthly = _monthly_series(nights, months_back=12)
 
     # Last-7-nights archetype table (newest first).
     table7 = []
@@ -218,6 +235,7 @@ def analyse(nights: list[Night]) -> dict:
         "weekday_avg": weekday_avg,
         "series": series,
         "weekly": weekly,
+        "monthly": monthly,
         "table7": table7,
         "begin_labels": [lbl for _, lbl in BEGIN_ARCHETYPES],
         "end_labels": [lbl for _, lbl in END_ARCHETYPES],

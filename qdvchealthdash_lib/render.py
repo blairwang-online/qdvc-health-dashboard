@@ -116,8 +116,8 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   }}
   /* page = main column + right sidebar */
   .page {{
-    display:grid; grid-template-columns:minmax(0,1fr) 216px;
-    gap:0; max-width:1320px; margin:0 auto; align-items:start;
+    display:grid; grid-template-columns:minmax(0,1fr) 264px;
+    gap:0; max-width:1380px; margin:0 auto; align-items:start;
   }}
   .wrap {{ max-width:1040px; margin:0 auto; padding:40px 24px 72px; }}
   html {{ scroll-padding-top:24px; }}
@@ -144,6 +144,19 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     color:var(--dawn1); font-weight:600; background:var(--inset);
     border-left-color:var(--dawn2);
   }}
+  .side-nav-btn {{
+    display:block; width:100%; text-align:left; margin-top:4px;
+    padding:8px 12px; border-radius:9px; cursor:pointer;
+    background:transparent; border:1px solid transparent; border-left:2px solid transparent;
+    font-family:{FONT_STACK}; font-size:13.5px; color:var(--muted);
+    transition:background .15s, color .15s;
+  }}
+  .side-nav-btn:hover {{ color:var(--dawn1); background:var(--inset); }}
+  .side-nav-btn::before {{
+    content:""; display:inline-block; width:9px; height:9px; border-radius:50%;
+    margin-right:8px; vertical-align:middle;
+    background:linear-gradient(90deg,#2a3ca8,#c62f45,#f2a65a);
+  }}
   .side-theme {{
     margin-top:16px; padding-top:14px; border-top:1px solid var(--line);
     display:flex; align-items:center; justify-content:space-between; padding-left:6px;
@@ -169,6 +182,60 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   }}
   html[data-theme="dark"] .theme-knob {{ transform:translateX(28px); }}
   .theme-btn:focus-visible {{ outline:2px solid var(--dawn2); outline-offset:2px; }}
+
+  /* Colour-palette modal */
+  .modal-overlay {{
+    position:fixed; inset:0; z-index:100; display:flex;
+    align-items:flex-start; justify-content:center; padding:6vh 20px;
+    background:rgba(10,14,24,.55); backdrop-filter:blur(2px);
+    animation:fadein .18s ease;
+  }}
+  .modal-overlay[hidden] {{ display:none; }}
+  @keyframes fadein {{ from {{ opacity:0; }} }}
+  .modal {{
+    background:var(--card); color:var(--ink); border:1px solid var(--line);
+    border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,.35);
+    width:min(520px,100%); max-height:86vh; display:flex; flex-direction:column;
+  }}
+  .modal-head {{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 24px 6px;
+  }}
+  .modal-head h2 {{ margin:0; font-size:20px; font-weight:600; }}
+  .modal-close {{
+    appearance:none; border:0; background:transparent; cursor:pointer;
+    font-size:18px; line-height:1; color:var(--muted); padding:6px; border-radius:8px;
+  }}
+  .modal-close:hover {{ color:var(--ink); background:var(--inset); }}
+  .modal-sub {{ margin:0; padding:0 24px 12px; color:var(--muted); font-size:13px; }}
+  .modal-body {{ overflow-y:auto; padding:0 24px 22px; }}
+  table.palette-table {{ width:100%; border-collapse:collapse; }}
+  table.palette-table th {{
+    position:sticky; top:0; background:var(--card);
+    font-family:ui-monospace,monospace; font-size:10.5px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); font-weight:600;
+    text-align:left; padding:8px 10px; border-bottom:1px solid var(--line);
+  }}
+  table.palette-table td {{
+    padding:7px 10px; border-bottom:1px solid var(--line); font-size:14px;
+    vertical-align:middle;
+  }}
+  table.palette-table td.pal-time {{ font-family:ui-monospace,monospace; }}
+  .swatch {{
+    width:26px; height:26px; border-radius:50%; border:0; cursor:pointer; padding:0;
+    box-shadow:0 0 0 1px var(--line), 0 1px 3px rgba(0,0,0,.25);
+    transition:box-shadow .15s ease, transform .1s ease;
+  }}
+  .swatch:hover {{
+    box-shadow:0 0 0 1px var(--line), 0 4px 12px rgba(0,0,0,.4); transform:translateY(-1px);
+  }}
+  .hexbtn {{
+    appearance:none; border:1px solid var(--line); background:var(--inset);
+    cursor:pointer; font-family:ui-monospace,monospace; font-size:13px;
+    color:var(--ink); padding:5px 10px; border-radius:8px; transition:box-shadow .15s;
+  }}
+  .hexbtn:hover {{ box-shadow:0 3px 10px rgba(0,0,0,.3); }}
+  .hexbtn.copied {{ color:var(--good); border-color:var(--good); }}
 
   @media (max-width:900px) {{
     .page {{ grid-template-columns:1fr; }}
@@ -232,11 +299,12 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   .panel p.cap {{ margin:0 0 16px; color:var(--muted); font-size:13.5px; }}
 
   .tabs {{
-    display:inline-flex; gap:4px; margin:6px 0 22px; padding:4px;
-    background:var(--inset); border:1px solid var(--inset-border); border-radius:12px;
+    display:flex; flex-wrap:wrap; gap:4px; margin:6px 0 22px; padding:4px;
+    background:var(--inset); border:1px solid var(--inset-border);
+    border-radius:12px; width:max-content; max-width:100%;
   }}
   .tab {{
-    appearance:none; border:1px solid transparent; cursor:pointer;
+    appearance:none; border:1px solid transparent; background:transparent; cursor:pointer;
     font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12.5px;
     letter-spacing:.02em; color:var(--muted); padding:8px 16px;
     border-radius:9px; transition:all .15s ease; white-space:nowrap;
@@ -253,13 +321,24 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     background:linear-gradient(135deg,var(--dawn2),var(--dawn3));
   }}
   .tab:focus-visible {{ outline:2px solid var(--dawn2); outline-offset:2px; }}
-  .chart-block {{ margin-top:8px; }}
-  .chart-block + .chart-block {{ margin-top:26px; padding-top:22px;
-    border-top:1px dashed var(--line); }}
+  /* Dark mode: the active tab must read as raised/selected, and inactive tabs
+     should recede rather than glow. */
+  html[data-theme="dark"] .tabs {{ background:#10141f; }}
+  html[data-theme="dark"] .tab {{ color:var(--muted); }}
+  html[data-theme="dark"] .tab:hover {{ color:var(--ink); background:rgba(255,255,255,.05); }}
+  html[data-theme="dark"] .tab.active {{
+    color:#dfe4ff; background:#2a3358; border-color:#3b4675;
+    box-shadow:0 1px 3px rgba(0,0,0,.5);
+  }}
+
+  /* two charts side by side */
+  .chart-duo {{ display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:8px; }}
+  .chart-block {{ min-width:0; }}
   .chart-title {{
     font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em;
     text-transform:uppercase; color:var(--muted); margin-bottom:10px;
   }}
+  @media (max-width:720px) {{ .chart-duo {{ grid-template-columns:1fr; gap:22px; }} }}
 
   /* Decision support */
   .ds-ambition {{ margin:4px auto 24px; max-width:420px; text-align:center; }}
@@ -462,21 +541,25 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
 
   <section id="sec-timing" class="panel navsection">
     <h2>Sleep timing &amp; trend</h2>
-    <p class="cap">Duration on top; the same data as actual clock time below.
-      Switch between recent nights and weekly aggregates.</p>
+    <p class="cap">Hours slept on the left; the same data as actual clock time on
+      the right. Switch between recent nights, weekly, and monthly aggregates.</p>
     <div class="tabs" role="tablist">
       <button class="tab active" role="tab" data-view="last7">Last 7 days</button>
       <button class="tab" role="tab" data-view="means">Weekly Means</button>
       <button class="tab" role="tab" data-view="medians">Weekly Medians</button>
+      <button class="tab" role="tab" data-view="mmeans">Monthly Means</button>
+      <button class="tab" role="tab" data-view="mmedians">Monthly Medians</button>
     </div>
 
-    <div class="chart-block">
-      <div class="chart-title" id="durTitle">Hours slept &amp; 7-night trend</div>
-      <div id="trend"></div>
-    </div>
-    <div class="chart-block">
-      <div class="chart-title" id="clockTitle">When you slept (clock time)</div>
-      <div id="clock"></div>
+    <div class="chart-duo">
+      <div class="chart-block">
+        <div class="chart-title" id="durTitle">Hours slept &amp; 7-night trend</div>
+        <div id="trend"></div>
+      </div>
+      <div class="chart-block">
+        <div class="chart-title" id="clockTitle">When you slept (clock time)</div>
+        <div id="clock"></div>
+      </div>
     </div>
   </section>
 
@@ -530,6 +613,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
         <a href="#sec-timing"     data-target="sec-timing">Sleep timing &amp; trend</a>
         <a href="#sec-archetypes" data-target="sec-archetypes">Sleep archetypes</a>
         <a href="#sec-misc"       data-target="sec-misc">Miscellaneous</a>
+        <button id="paletteOpen" class="side-nav-btn" type="button">Colour Palette</button>
       </nav>
       <div class="side-theme">
         <span class="side-theme-label">Theme</span>
@@ -542,6 +626,24 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
       </div>
     </div>
   </aside>
+</div>
+
+<div id="paletteModal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="paletteTitle">
+    <div class="modal-head">
+      <h2 id="paletteTitle">Time-of-day colour scheme</h2>
+      <button id="paletteClose" class="modal-close" type="button"
+              aria-label="Close">✕</button>
+    </div>
+    <p class="modal-sub">The colour used for each hour of the day. Click any
+      swatch or hex code to copy it.</p>
+    <div class="modal-body">
+      <table class="palette-table">
+        <thead><tr><th>Time of day</th><th>Colour</th><th>Hex code</th></tr></thead>
+        <tbody id="paletteRows"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -584,6 +686,27 @@ function twoLineLabel(svg, cx, yBase, top, bottom){{
   svg.appendChild(t2);
 }}
 
+// Vertical band scale for horizontal bar charts: each item gets an equal-height
+// row slot; bars are centred within their slot.
+function bandScaleY(n, mT, ih){{
+  const slot = ih / Math.max(1, n);
+  return {{
+    slot,
+    center: i => mT + slot * (i + 0.5),
+    barHeight: Math.max(6, Math.min(slot * 0.62, 26)),
+  }};
+}}
+
+// Two-line row label (left of a horizontal chart), right-aligned to the axis.
+function rowLabel(svg, xRight, yMid, top, bottom){{
+  const t1 = el('text', {{x:xRight, y:yMid-2, 'text-anchor':'end'}});
+  t1.setAttribute('class','axis axis-top'); t1.textContent = top;
+  svg.appendChild(t1);
+  const t2 = el('text', {{x:xRight, y:yMid+11, 'text-anchor':'end'}});
+  t2.setAttribute('class','axis axis-date'); t2.textContent = bottom;
+  svg.appendChild(t2);
+}}
+
 // ---- Clock helpers (minutes-since-noon -> "HH:MM") ---------------------- //
 function clockFromNoon(mins){{
   let total=Math.round(mins)+720; total=((total%1440)+1440)%1440;
@@ -620,23 +743,19 @@ function buildView(view){{
     const s=A.series.slice(-7);
     return {{
       hasRolling:true,
-      durNote:'Hours per night; line is the 7-night rolling average.',
-      clockNote:'Each bar spans bedtime to wake time for that night.',
       items:s.map(d=>({{
         dow:d.dow, dm:d.dm, duration:d.duration, rolling:d.rolling,
         bed_min:d.bed_min, wake_min:d.wake_min, bed:d.bed, wake:d.wake
       }}))
     }};
   }}
-  const agg = view==='means'
-    ? {{b:'mean_bed_min',w:'mean_wake_min',d:'mean_dur',bc:'mean_bed',wc:'mean_wake'}}
-    : {{b:'med_bed_min', w:'med_wake_min', d:'med_dur', bc:'med_bed', wc:'med_wake'}};
-  const word = view==='means' ? 'Mean' : 'Median';
+  const stat = (view==='means' || view==='mmeans') ? 'mean' : 'med';
+  const src  = (view==='means' || view==='medians') ? A.weekly : A.monthly;
+  const agg = {{ b:stat+'_bed_min', w:stat+'_wake_min', d:stat+'_dur',
+                bc:stat+'_bed', wc:stat+'_wake' }};
   return {{
     hasRolling:false,
-    durNote:word+' hours slept per week (last 8 weeks).',
-    clockNote:word+' bedtime to '+word.toLowerCase()+' wake time, per week.',
-    items:A.weekly.map(w=>({{
+    items:src.map(w=>({{
       dow:w.dow, dm:w.dm, duration:w[agg.d], rolling:null,
       bed_min:w[agg.b], wake_min:w[agg.w], bed:w[agg.bc], wake:w[agg.wc],
       nights:w.nights
@@ -644,105 +763,109 @@ function buildView(view){{
   }};
 }}
 
-// ---- Duration chart (hours) --------------------------------------------- //
+// ---- Duration chart (hours) — horizontal bars --------------------------- //
 function renderDuration(v){{
   const s=v.items, host=document.getElementById('trend');
   host.innerHTML='';
   if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
-  const W=980,H=310,mL=42,mR=14,mT=14,mB=48, iw=W-mL-mR, ih=H-mT-mB;
+  const rowH=Math.max(26, Math.min(40, 300/s.length));
+  const mL=104, mR=18, mT=10, mB=30;
+  const H=mT+mB+rowH*s.length, W=480, iw=W-mL-mR, ih=H-mT-mB;
   const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
   const maxD=Math.max(10, Math.ceil(Math.max(...s.map(d=>d.duration))));
-  const B=bandScale(s.length, mL, iw);
-  const cx=i=>B.center(i);
-  const y=val=> mT + ih - (val/maxD)*ih;
-  // target band 7-9h
-  svg.appendChild(el('rect',{{x:mL,y:y(9),width:iw,height:y(7)-y(9),
-    fill:css('--good'),opacity:0.10}}));
+  const B=bandScaleY(s.length, mT, ih);
+  const cy=i=>B.center(i);
+  const x=val=> mL + (val/maxD)*iw;   // hours -> horizontal position
+  // target band 7-9h (vertical strip)
+  svg.appendChild(el('rect',{{x:x(7),y:mT,width:x(9)-x(7),height:ih,
+    fill:css('--good'),opacity:0.12}}));
+  // vertical gridlines every 2h
   for(let h=0;h<=maxD;h+=2){{
-    svg.appendChild(el('line',{{x1:mL,y1:y(h),x2:W-mR,y2:y(h),
+    svg.appendChild(el('line',{{x1:x(h),y1:mT,x2:x(h),y2:mT+ih,
       stroke:css('--line'),'stroke-width':1}}));
-    const t=el('text',{{x:mL-8,y:y(h)+3,'text-anchor':'end'}});
+    const t=el('text',{{x:x(h),y:H-12,'text-anchor':'middle'}});
     t.setAttribute('class','axis'); t.textContent=h+'h'; svg.appendChild(t);
   }}
+  // bars (uniform styling across all tabs)
   s.forEach((d,i)=>{{
-    svg.appendChild(el('rect',{{x:cx(i)-B.barWidth/2,y:y(d.duration),
-      width:B.barWidth,height:ih-(y(d.duration)-mT),
-      fill:css('--dawn2'),opacity:v.hasRolling?0.16:0.55,rx:2}}));
+    svg.appendChild(el('rect',{{x:mL,y:cy(i)-B.barHeight/2,
+      width:Math.max(1,x(d.duration)-mL),height:B.barHeight,
+      fill:css('--dawn2'),opacity:0.85,rx:3}}));
   }});
-  // line: rolling avg for last7, else connect the weekly points
-  let path='';
-  s.forEach((d,i)=>{{const val=v.hasRolling?d.rolling:d.duration;
-    path+=(i?'L':'M')+cx(i)+' '+y(val);}});
-  svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
-    'stroke-width':2.5,'stroke-linejoin':'round',
-    opacity:v.hasRolling?1:0.5,
-    'stroke-dasharray':v.hasRolling?'':'5 4'}}));
-  const step=Math.max(1,Math.ceil(s.length/8));
-  s.forEach((d,i)=>{{ if(i%step && i!==s.length-1) return;
-    twoLineLabel(svg, cx(i), H-24, d.dow, d.dm);
-  }});
+  // last7 rolling trend line connecting bar ends down the rows
+  if(v.hasRolling){{
+    let path='';
+    s.forEach((d,i)=>{{ path+=(i?'L':'M')+x(d.rolling)+' '+cy(i); }});
+    svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
+      'stroke-width':2,'stroke-linejoin':'round',opacity:.9}}));
+    s.forEach((d,i)=>{{ svg.appendChild(el('circle',{{cx:x(d.rolling),cy:cy(i),
+      r:2.5,fill:css('--dawn1'),opacity:.9}})); }});
+  }}
+  // row labels (left)
+  s.forEach((d,i)=>{{ rowLabel(svg, mL-10, cy(i), d.dow, d.dm); }});
   host.appendChild(svg);
 }}
 
-// ---- Clock-time chart (when sleep happened) ----------------------------- //
+// ---- Clock-time chart (when sleep happened) — horizontal bars ----------- //
 function renderClock(v){{
   const s=v.items, host=document.getElementById('clock');
   host.innerHTML='';
   if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
-  const W=980,H=310,mL=52,mR=14,mT=14,mB=48, iw=W-mL-mR, ih=H-mT-mB;
+  const rowH=Math.max(26, Math.min(40, 300/s.length));
+  const mL=104, mR=18, mT=10, mB=30;
+  const H=mT+mB+rowH*s.length, W=480, iw=W-mL-mR, ih=H-mT-mB;
   const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
-  // y domain from data (minutes-since-noon), padded to whole 2-hour marks.
+  // x domain from data (minutes-since-noon), padded to whole 2-hour marks.
   let lo=Math.min(...s.map(d=>d.bed_min)), hi=Math.max(...s.map(d=>d.wake_min));
   lo=Math.floor((lo-30)/120)*120; hi=Math.ceil((hi+30)/120)*120;
-  const y=m=> mT + ih - ((m-lo)/(hi-lo))*ih;   // larger minutes-since-noon (later) -> higher on screen
-  // Gradient anchored to the axis in user space (not per-bar), so a given
-  // clock time is always the same colour on every bar. Colours come from the
-  // shared time-of-day palette, sampled across the visible range so each
-  // y-value shows the colour of the time of day it represents.
+  const x=m=> mL + ((m-lo)/(hi-lo))*iw;   // earlier -> left, later -> right
+  // Gradient anchored to the x-axis in user space, so a given clock time is the
+  // same colour on every bar. Colours come from the shared time-of-day palette.
   const defs=el('defs',{{}});
   const lg=el('linearGradient',{{id:'barGrad',gradientUnits:'userSpaceOnUse',
-    x1:'0',y1:y(hi),x2:'0',y2:y(lo)}});
-  const STEP=15;  // minutes between gradient stops
-  for(let m=hi; m>=lo; m-=STEP){{
-    const off=(y(m)-y(hi))/(y(lo)-y(hi));   // 0 at top (hi), 1 at bottom (lo)
+    x1:x(lo),y1:'0',x2:x(hi),y2:'0'}});
+  const STEP=15;
+  for(let m=lo; m<=hi; m+=STEP){{
+    const off=(x(m)-x(lo))/(x(hi)-x(lo));   // 0 at left (lo), 1 at right (hi)
     lg.appendChild(el('stop',{{offset:off.toFixed(4),'stop-color':todHexFromNoon(m)}}));
   }}
   defs.appendChild(lg); svg.appendChild(defs);
+  // vertical gridlines + time labels every 2h
   for(let m=lo;m<=hi;m+=120){{
-    svg.appendChild(el('line',{{x1:mL,y1:y(m),x2:W-mR,y2:y(m),
+    svg.appendChild(el('line',{{x1:x(m),y1:mT,x2:x(m),y2:mT+ih,
       stroke:css('--line'),'stroke-width':1}}));
-    const t=el('text',{{x:mL-8,y:y(m)+3,'text-anchor':'end'}});
+    const t=el('text',{{x:x(m),y:H-12,'text-anchor':'middle'}});
     t.setAttribute('class','axis'); t.textContent=clockFromNoon(m); svg.appendChild(t);
   }}
-  const B=bandScale(s.length, mL, iw);
-  const cx=i=>B.center(i);
+  const B=bandScaleY(s.length, mT, ih);
+  const cy=i=>B.center(i);
   s.forEach((d,i)=>{{
-    const yTop=y(d.wake_min), yBot=y(d.bed_min);   // wake is later -> smaller y (higher up)
-    svg.appendChild(el('rect',{{x:cx(i)-B.barWidth/2,y:yTop,width:B.barWidth,
-      height:Math.max(1,yBot-yTop),rx:3,fill:'url(#barGrad)',opacity:0.9}}));
+    const xL=x(d.bed_min), xR=x(d.wake_min);
+    svg.appendChild(el('rect',{{x:xL,y:cy(i)-B.barHeight/2,
+      width:Math.max(1,xR-xL),height:B.barHeight,rx:3,
+      fill:'url(#barGrad)',opacity:0.92}}));
   }});
-  // subtle centre line tracking mid-sleep
-  let path='';
-  s.forEach((d,i)=>{{const mid=(d.bed_min+d.wake_min)/2;
-    path+=(i?'L':'M')+cx(i)+' '+y(mid);}});
-  svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
-    'stroke-width':1.5,opacity:0.35,'stroke-dasharray':'3 4'}}));
-  const step=Math.max(1,Math.ceil(s.length/8));
-  s.forEach((d,i)=>{{ if(i%step && i!==s.length-1) return;
-    twoLineLabel(svg, cx(i), H-24, d.dow, d.dm);
-  }});
+  // row labels (left)
+  s.forEach((d,i)=>{{ rowLabel(svg, mL-10, cy(i), d.dow, d.dm); }});
   host.appendChild(svg);
 }}
 
 // ---- Tab wiring --------------------------------------------------------- //
 function showView(view){{
   const v=buildView(view);
-  document.getElementById('durTitle').textContent =
-    view==='last7' ? 'Hours slept & 7-night trend'
-    : (view==='means' ? 'Mean hours slept per week' : 'Median hours slept per week');
-  document.getElementById('clockTitle').textContent =
-    'When you slept — ' + (view==='last7' ? 'nightly clock time'
-      : (view==='means' ? 'weekly mean clock time' : 'weekly median clock time'));
+  const durWord = view==='last7' ? 'Hours slept & 7-night trend'
+    : (view==='means'  ? 'Mean hours slept per week'
+    : (view==='medians'? 'Median hours slept per week'
+    : (view==='mmeans' ? 'Mean hours slept per month'
+    :                    'Median hours slept per month')));
+  const clockWord = 'When you slept — ' + (
+      view==='last7'  ? 'nightly clock time'
+    : (view==='means' ? 'weekly mean clock time'
+    : (view==='medians'?'weekly median clock time'
+    : (view==='mmeans'? 'monthly mean clock time'
+    :                   'monthly median clock time'))));
+  document.getElementById('durTitle').textContent = durWord;
+  document.getElementById('clockTitle').textContent = clockWord;
   renderDuration(v);
   renderClock(v);
 }}
@@ -984,6 +1107,61 @@ showView('last7');
 
   // Smooth-scroll + immediate highlight on click.
   links.forEach(a => a.addEventListener('click', () => setActive(a.dataset.target)));
+}})();
+
+// ---- Colour-palette modal ----------------------------------------------- //
+(function(){{
+  const overlay = document.getElementById('paletteModal');
+  const openBtn = document.getElementById('paletteOpen');
+  const closeBtn = document.getElementById('paletteClose');
+  const rows = document.getElementById('paletteRows');
+
+  // Build one row per hour of the day using the shared time-of-day palette.
+  let html='';
+  for(let h=0; h<24; h++){{
+    const hex = todHex(h*60).toUpperCase();
+    const label = String(h).padStart(2,'0')+':00';
+    html += '<tr>'
+      + '<td class="pal-time">'+label+'</td>'
+      + '<td><button class="swatch" style="background:'+hex+'" '
+        + 'data-hex="'+hex+'" title="Copy '+hex+'" aria-label="Copy '+hex+'"></button></td>'
+      + '<td><button class="hexbtn" data-hex="'+hex+'">'+hex+'</button></td>'
+      + '</tr>';
+  }}
+  rows.innerHTML = html;
+
+  function copyHex(hex, btn){{
+    const done = () => {{
+      if(btn.classList.contains('hexbtn')){{
+        const orig = btn.textContent; btn.textContent='Copied!'; btn.classList.add('copied');
+        setTimeout(()=>{{ btn.textContent=orig; btn.classList.remove('copied'); }}, 1100);
+      }} else {{
+        const hb = btn.closest('tr').querySelector('.hexbtn');
+        if(hb){{ const o=hb.textContent; hb.textContent='Copied!'; hb.classList.add('copied');
+          setTimeout(()=>{{ hb.textContent=o; hb.classList.remove('copied'); }},1100); }}
+      }}
+    }};
+    if(navigator.clipboard && navigator.clipboard.writeText){{
+      navigator.clipboard.writeText(hex).then(done).catch(()=>fallback(hex,done));
+    }} else {{ fallback(hex, done); }}
+  }}
+  function fallback(text, done){{
+    const ta=document.createElement('textarea'); ta.value=text;
+    ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta);
+    ta.select(); try{{ document.execCommand('copy'); }}catch(e){{}}
+    document.body.removeChild(ta); done();
+  }}
+  rows.addEventListener('click', (e) => {{
+    const b = e.target.closest('[data-hex]');
+    if(b) copyHex(b.dataset.hex, b);
+  }});
+
+  function open(){{ overlay.hidden=false; document.body.style.overflow='hidden'; }}
+  function close(){{ overlay.hidden=true; document.body.style.overflow=''; }}
+  openBtn.addEventListener('click', open);
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {{ if(e.target===overlay) close(); }});
+  document.addEventListener('keydown', (e) => {{ if(e.key==='Escape' && !overlay.hidden) close(); }});
 }})();
 </script>
 </body>
