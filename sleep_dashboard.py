@@ -42,11 +42,11 @@ FONT_STACK = "'Andika','Iowan Old Style','Palatino Linotype',Georgia,serif"
 # Each entry is (upper_bound_exclusive, label). The last entry uses None as an
 # open-ended upper bound. Times are interpreted on a "night" clock where the
 # evening/early-morning ordering is: 18:00 → 23:59 → 00:00 → 12:00.
-# Customise the labels freely; the brainstormed names can be dropped in here.
+# Customise the labels freely.
 BEGIN_ARCHETYPES = [
-    ("00:00", "Lark"),          # before midnight
-    ("03:00", "Night Owl"),     # 00:00–02:59
-    (None,    "Bat"),           # 03:00 onward
+    ("00:00", "Sleeps early"),           # before midnight
+    ("03:00", "Sleeps around midnight"),  # 00:00–02:59
+    (None,    "Sleeps super late"),       # 03:00 onward
 ]
 END_ARCHETYPES = [
     ("06:00", "Warrior"),       # before 6 AM
@@ -54,13 +54,35 @@ END_ARCHETYPES = [
     (None,    "Philosopher"),   # 08:00 onward
 ]
 
+# At-a-glance threshold subtitles shown under each archetype in the reference
+# table (bounds are approximate; inclusivity is not indicated by design).
+BEGIN_SUBTITLES = ["before midnight", "12AM–3AM", "after 3AM"]
+END_SUBTITLES   = ["before 6AM", "6AM–8AM", "after 8AM"]
+
+# Bounds (in minutes on a continuous night axis, midnight = 1440) used ONLY to
+# estimate the range of hours slept per cell in the reference table. Open-ended
+# buckets get an assumed practical floor/ceiling as specified:
+#   sleeps-early: no earlier than 9PM;  sleeps-super-late: no later than 4AM;
+#   warrior: wake no earlier than 5AM;  philosopher: wake no later than 10AM.
+_H = 60
+BEGIN_BOUNDS = [   # (earliest bedtime, latest bedtime)
+    (21 * _H,       24 * _H),        # sleeps early: 21:00 – 24:00
+    (24 * _H,       27 * _H),        # around midnight: 00:00 – 03:00
+    (27 * _H,       28 * _H),        # super late: 03:00 – 04:00
+]
+END_BOUNDS = [     # (earliest wake, latest wake), on the +1 day axis
+    (5 * _H + 1440, 6 * _H + 1440),  # warrior: 05:00 – 06:00
+    (6 * _H + 1440, 8 * _H + 1440),  # commuter: 06:00 – 08:00
+    (8 * _H + 1440, 10 * _H + 1440), # philosopher: 08:00 – 10:00
+]
+
 # Composite archetype for each (begin bucket index, end bucket index).
-# Rows = begin (Lark, Night Owl, Bat); columns = end (Warrior, Commuter, Philosopher).
+# Rows = begin (early, midnight, super late); columns = end (Warrior, Commuter, Philosopher).
 COMPOSITE_ARCHETYPES = [
     # Warrior              Commuter             Philosopher
-    ["Rested Archer",     "Stockholm Winter",  "Dreaming Kierkegaard"],  # Lark
-    ["Classic Warrior",   "Classic Commuter",  "Classic Philosopher"],   # Night Owl
-    ["Besieged Defender", "Madrid Summer",     "Nocturnal Voltaire"],    # Bat
+    ["Rested Archer",     "Stockholm Winter",  "Dreaming Kierkegaard"],  # Sleeps early
+    ["Classic Warrior",   "Classic Commuter",  "Classic Philosopher"],   # Around midnight
+    ["Besieged Defender", "Madrid Summer",     "Nocturnal Voltaire"],    # Super late
 ]
 
 # Short descriptions for the reference table, same row/column layout as above.
@@ -75,6 +97,17 @@ COMPOSITE_BLURBS = [
      "Late timezone pushes bedtime back, but work still calls in the morning.",
      "Works in bed till noon, dictates deep into the night — fully nocturnal."],
 ]
+
+
+def _sleep_hours_range(bi: int, ei: int) -> str:
+    """Approximate range of hours slept for a composite cell, from the bucket
+    bounds. Max = latest wake − earliest bedtime; min = earliest wake − latest
+    bedtime. Rounded to whole hours."""
+    be_early, be_late = BEGIN_BOUNDS[bi]
+    en_early, en_late = END_BOUNDS[ei]
+    lo = (en_early - be_late) / 60
+    hi = (en_late - be_early) / 60
+    return f"approx. {round(lo)}–{round(hi)} hours of sleep"
 
 
 # --------------------------------------------------------------------------- #
@@ -375,6 +408,8 @@ def analyse(nights: list[Night]) -> dict:
     # Last-7-nights archetype table (newest first).
     table7 = []
     for n in reversed(nights[-7:]):
+        bi, ei = begin_idx(n.start), end_idx(n.end)
+        comp_bg = _mix_hex(_BEGIN_BG[bi], _END_BG[ei])
         table7.append({
             "date": n.wake_date.strftime("%a %-d %b"),   # e.g. "Sun 28 Jun"
             "begin": n.start.strftime("%H:%M"),
@@ -382,6 +417,9 @@ def analyse(nights: list[Night]) -> dict:
             "begin_type": classify_begin(n.start),
             "end_type": classify_end(n.end),
             "composite": classify_composite(n.start, n.end),
+            "begin_bg": _BEGIN_BG[bi], "begin_fg": _text_on(_BEGIN_BG[bi]),
+            "end_bg": _END_BG[ei],     "end_fg": _text_on(_END_BG[ei]),
+            "comp_bg": comp_bg,        "comp_fg": _text_on(comp_bg),
         })
 
     return {
@@ -419,9 +457,12 @@ def analyse(nights: list[Night]) -> dict:
 # HTML rendering
 # --------------------------------------------------------------------------- #
 
-# Pill background colours (must match the .pill.bN / .pill.eN CSS below).
-_BEGIN_BG = ["#e3ecff", "#ede4fb", "#efe0f2"]   # Lark, Night Owl, Bat
-_END_BG   = ["#fde6d6", "#fdf0d3", "#e0efe4"]   # Warrior, Commuter, Philosopher
+# Archetype colour spectrums. Begin-sleep uses a narrow cool spectrum
+# (light blue → deep purple); end-sleep uses a distinct warm spectrum
+# (amber → pale yellow). Composites are a 50/50 blend of the two inputs,
+# so a cell's colour is legible as "cool axis + warm axis".
+_BEGIN_BG = ["#cfe0ff", "#8f7bd6", "#4a3a8c"]   # early → around midnight → super late
+_END_BG   = ["#f0a552", "#f5cd77", "#f7ecc0"]   # Warrior → Commuter → Philosopher
 
 
 def _mix_hex(c1: str, c2: str) -> str:
@@ -433,32 +474,44 @@ def _mix_hex(c1: str, c2: str) -> str:
     return f"#{(r1+r2)//2:02x}{(g1+g2)//2:02x}{(b1+b2)//2:02x}"
 
 
+def _text_on(bg: str) -> str:
+    """Pick a readable text colour (near-black or white) for a given
+    background, using perceived luminance."""
+    r, g, b = int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)
+    lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return "#1a2238" if lum > 0.6 else "#ffffff"
+
+
+def _pill_style(bg: str) -> str:
+    return f"background:{bg};color:{_text_on(bg)}"
+
+
 def _reference_table_html() -> str:
     """Build the static composite-archetype reference grid. Rows are begin
-    buckets, columns are end buckets; each cell blends the two pill colours."""
+    buckets, columns are end buckets; each cell blends the two spectrum colours
+    and shows the composite name, a blurb, and an approximate hours-slept range."""
     end_heads = "".join(
-        f'<th class="ref-endhead">{html.escape(lbl)}<span>wakes {when}</span></th>'
-        for lbl, when in zip(
-            [e[1] for e in END_ARCHETYPES], ["early", "mid", "late"]
-        )
+        f'<th class="ref-endhead">{html.escape(lbl)}<span>{html.escape(sub)}</span></th>'
+        for lbl, sub in zip([e[1] for e in END_ARCHETYPES], END_SUBTITLES)
     )
     rows = ""
-    for bi, (begin_lbl, when) in enumerate(
-        zip([b[1] for b in BEGIN_ARCHETYPES], ["early", "mid", "late"])
-    ):
+    for bi, begin_lbl in enumerate([b[1] for b in BEGIN_ARCHETYPES]):
+        sub = BEGIN_SUBTITLES[bi]
         cells = ""
         for ei in range(len(END_ARCHETYPES)):
             bg = _mix_hex(_BEGIN_BG[bi], _END_BG[ei])
             name = html.escape(COMPOSITE_ARCHETYPES[bi][ei])
             blurb = html.escape(COMPOSITE_BLURBS[bi][ei])
+            hours = html.escape(_sleep_hours_range(bi, ei))
             cells += (
-                f'<td class="ref-cell" style="background:{bg}">'
+                f'<td class="ref-cell" style="{_pill_style(bg)}">'
                 f'<span class="ref-name">{name}</span>'
+                f'<span class="ref-hours">{hours}</span>'
                 f'<span class="ref-blurb">{blurb}</span></td>'
             )
         rows += (
             f'<tr><th class="ref-rowhead">{html.escape(begin_lbl)}'
-            f'<span>sleeps {when}</span></th>{cells}</tr>'
+            f'<span>{html.escape(sub)}</span></th>{cells}</tr>'
         )
     return (
         '<table class="reference">'
@@ -605,18 +658,6 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     display:inline-block; padding:4px 12px; border-radius:999px;
     font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap;
   }}
-  /* begin-time pills (earlier -> later) */
-  .pill.b0 {{ background:#e3ecff; color:#2f4a8c; }}   /* Lark */
-  .pill.b1 {{ background:#ede4fb; color:#6b3fb0; }}   /* Night Owl */
-  .pill.b2 {{ background:#efe0f2; color:#8a3d80; }}   /* Bat */
-  /* end-time pills (earlier -> later) */
-  .pill.e0 {{ background:#fde6d6; color:#b4571f; }}   /* Warrior */
-  .pill.e1 {{ background:#fdf0d3; color:#9a7212; }}   /* Commuter */
-  .pill.e2 {{ background:#e0efe4; color:#2f7a4e; }}   /* Philosopher */
-  .pill.composite {{
-    background:linear-gradient(135deg,var(--dawn1),var(--dawn2));
-    color:#fff; font-weight:600;
-  }}
   .tablenote {{ margin:16px 0 0; color:var(--muted); font-size:12.5px;
     font-style:italic; }}
 
@@ -624,25 +665,28 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     overflow-x:auto; }}
   table.reference {{ width:100%; border-collapse:separate; border-spacing:6px;
     table-layout:fixed; min-width:560px; }}
-  table.reference th.ref-corner {{ width:110px; }}
+  table.reference th.ref-corner {{ width:120px; }}
   table.reference th.ref-endhead, table.reference th.ref-rowhead {{
     font-family:ui-monospace,monospace; font-size:12px; font-weight:600;
     color:var(--ink); text-align:left; padding:6px 8px; vertical-align:middle;
   }}
   table.reference th span {{
     display:block; font-size:10px; font-weight:400; letter-spacing:.04em;
-    text-transform:uppercase; color:var(--muted); margin-top:2px;
+    text-transform:none; color:var(--muted); margin-top:2px;
   }}
   table.reference th.ref-endhead {{ text-align:center; }}
   table.reference th.ref-endhead span {{ text-align:center; }}
   td.ref-cell {{
     border-radius:10px; padding:11px 12px; vertical-align:top;
-    border:1px solid rgba(26,34,56,.05);
+    border:1px solid rgba(26,34,56,.08);
   }}
-  td.ref-cell .ref-name {{ display:block; font-weight:600; font-size:14px;
-    color:var(--ink); }}
+  td.ref-cell .ref-name {{ display:block; font-weight:700; font-size:14px;
+    color:inherit; }}
+  td.ref-cell .ref-hours {{ display:block; font-family:ui-monospace,monospace;
+    font-size:10.5px; font-weight:600; letter-spacing:.02em; margin-top:3px;
+    color:inherit; opacity:.8; }}
   td.ref-cell .ref-blurb {{ display:block; font-size:11.5px; line-height:1.35;
-    color:#4a5170; margin-top:4px; }}
+    color:inherit; opacity:.85; margin-top:6px; }}
   @media (max-width:640px) {{
     table.archetype th:nth-child(2), table.archetype td:nth-child(2),
     table.archetype th:nth-child(3), table.archetype td:nth-child(3) {{
@@ -963,21 +1007,21 @@ showView('last7');
 // ---- Archetype table ---------------------------------------------------- //
 (function(){{
   const tbody=document.querySelector('#archetypeTable tbody');
-  const bIdx=Object.fromEntries(A.begin_labels.map((l,i)=>[l,i]));
-  const eIdx=Object.fromEntries(A.end_labels.map((l,i)=>[l,i]));
   if(!A.table7.length){{
     tbody.innerHTML='<tr><td colspan="6" class="axis">No recent data.</td></tr>';
     return;
   }}
+  const pill=(txt,bg,fg)=>
+    '<span class="pill" style="background:'+bg+';color:'+fg+'">'+txt+'</span>';
   A.table7.forEach(r=>{{
     const tr=document.createElement('tr');
     tr.innerHTML =
       '<td class="date">'+r.date+'</td>'+
       '<td class="time">'+r.begin+'</td>'+
       '<td class="time">'+r.end+'</td>'+
-      '<td><span class="pill b'+bIdx[r.begin_type]+'">'+r.begin_type+'</span></td>'+
-      '<td><span class="pill e'+eIdx[r.end_type]+'">'+r.end_type+'</span></td>'+
-      '<td><span class="pill composite">'+r.composite+'</span></td>';
+      '<td>'+pill(r.begin_type, r.begin_bg, r.begin_fg)+'</td>'+
+      '<td>'+pill(r.end_type,   r.end_bg,   r.end_fg)+'</td>'+
+      '<td>'+pill(r.composite,  r.comp_bg,  r.comp_fg)+'</td>';
     tbody.appendChild(tr);
   }});
 }})();
