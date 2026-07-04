@@ -31,6 +31,15 @@ from dataclasses import dataclass
 
 
 # --------------------------------------------------------------------------- #
+# Configuration
+# --------------------------------------------------------------------------- #
+
+# Font stack used throughout the dashboard. Customise freely; the first
+# available family wins, falling back rightward.
+FONT_STACK = "'Andika','Iowan Old Style','Palatino Linotype',Georgia,serif"
+
+
+# --------------------------------------------------------------------------- #
 # Data model & parsing
 # --------------------------------------------------------------------------- #
 
@@ -141,6 +150,51 @@ def _fmt_hm(hours: float) -> str:
     return f"{h}h {m:02d}m"
 
 
+def _weekly_series(nights: list[Night], weeks_back: int = 8) -> list[dict]:
+    """Aggregate nights into ISO weeks, returning the last `weeks_back` weeks
+    (chronological). Each entry carries both mean and median bedtime/waketime
+    (as minutes-since-noon and formatted clock strings) plus the derived
+    duration for each aggregation."""
+    by_week: dict[tuple[int, int], list[Night]] = defaultdict(list)
+    for n in nights:
+        iso = n.wake_date.isocalendar()
+        by_week[(iso[0], iso[1])].append(n)
+
+    keys = sorted(by_week)[-weeks_back:]
+    out: list[dict] = []
+    for (yr, wk) in keys:
+        group = by_week[(yr, wk)]
+        beds = [_minutes_since_noon(n.start) for n in group]
+        durs = [n.duration_h for n in group]  # minutes below
+
+        mean_bed = statistics.mean(beds)
+        med_bed = statistics.median(beds)
+        mean_dur_min = statistics.mean(durs) * 60
+        med_dur_min = statistics.median(durs) * 60
+
+        # Monday date of the ISO week, for the axis label.
+        monday = dt.date.fromisocalendar(yr, wk, 1)
+
+        out.append({
+            "label": monday.isoformat()[5:],   # MM-DD of week start
+            "week": f"{yr}-W{wk:02d}",
+            "nights": len(group),
+            # Means
+            "mean_bed_min": round(mean_bed, 1),
+            "mean_wake_min": round(mean_bed + mean_dur_min, 1),
+            "mean_dur": round(mean_dur_min / 60, 2),
+            "mean_bed": _fmt_clock_from_noon(mean_bed),
+            "mean_wake": _fmt_clock_from_noon(mean_bed + mean_dur_min),
+            # Medians
+            "med_bed_min": round(med_bed, 1),
+            "med_wake_min": round(med_bed + med_dur_min, 1),
+            "med_dur": round(med_dur_min / 60, 2),
+            "med_bed": _fmt_clock_from_noon(med_bed),
+            "med_wake": _fmt_clock_from_noon(med_bed + med_dur_min),
+        })
+    return out
+
+
 def analyse(nights: list[Night]) -> dict:
     if not nights:
         raise SystemExit("No valid sleep records found.")
@@ -211,15 +265,24 @@ def analyse(nights: list[Night]) -> dict:
         window.append(n.duration_h)
         if len(window) > 7:
             window.pop(0)
+        bed_m = _minutes_since_noon(n.start)
+        wake_m = _minutes_since_noon(n.end)
         series.append(
             {
                 "date": n.wake_date.isoformat(),
                 "duration": round(n.duration_h, 2),
                 "rolling": round(statistics.mean(window), 2),
-                "bed": _fmt_clock_from_noon(_minutes_since_noon(n.start)),
-                "wake": _fmt_clock_from_noon(_minutes_since_noon(n.end)),
+                "bed": _fmt_clock_from_noon(bed_m),
+                "wake": _fmt_clock_from_noon(bed_m + n.duration_h * 60),
+                "bed_min": round(bed_m, 1),
+                # End expressed on the same continuous axis as bed_min, so the
+                # clock-time bar spans exactly the duration even past midnight.
+                "wake_min": round(bed_m + n.duration_h * 60, 1),
             }
         )
+
+    # Weekly aggregations (mean & median) for the last 8 ISO weeks present.
+    weekly = _weekly_series(nights, weeks_back=8)
 
     return {
         "recorded": recorded,
@@ -244,6 +307,7 @@ def analyse(nights: list[Night]) -> dict:
         "buckets": buckets,
         "weekday_avg": weekday_avg,
         "series": series,
+        "weekly": weekly,
         "nights_7_9": sum(1 for d in durations if 7 <= d <= 9),
     }
 
@@ -285,7 +349,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   * {{ box-sizing:border-box; }}
   body {{
     margin:0; background:var(--paper); color:var(--ink);
-    font-family:'Iowan Old Style','Palatino Linotype',Georgia,serif;
+    font-family:{FONT_STACK};
     -webkit-font-smoothing:antialiased;
   }}
   .wrap {{ max-width:1040px; margin:0 auto; padding:40px 24px 72px; }}
@@ -335,6 +399,25 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   }}
   .panel h2 {{ font-size:19px; margin:0 0 2px; font-weight:600; }}
   .panel p.cap {{ margin:0 0 16px; color:var(--muted); font-size:13.5px; }}
+
+  .tabs {{ display:flex; gap:6px; margin:4px 0 20px;
+    border-bottom:1px solid var(--line); }}
+  .tab {{
+    appearance:none; border:0; background:transparent; cursor:pointer;
+    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12.5px;
+    letter-spacing:.03em; color:var(--muted); padding:8px 14px;
+    border-bottom:2px solid transparent; margin-bottom:-1px; transition:.15s;
+  }}
+  .tab:hover {{ color:var(--ink); }}
+  .tab.active {{ color:var(--dawn1); border-bottom-color:var(--dawn2); font-weight:600; }}
+  .tab:focus-visible {{ outline:2px solid var(--dawn2); outline-offset:2px; border-radius:4px; }}
+  .chart-block {{ margin-top:8px; }}
+  .chart-block + .chart-block {{ margin-top:26px; padding-top:22px;
+    border-top:1px dashed var(--line); }}
+  .chart-title {{
+    font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:10px;
+  }}
   .cols {{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }}
   svg {{ display:block; width:100%; height:auto; overflow:visible; }}
   .axis {{ font-family:ui-monospace,monospace; font-size:10.5px; fill:var(--muted); }}
@@ -408,10 +491,23 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   </section>
 
   <section class="panel">
-    <h2>Nightly sleep &amp; 7-night trend</h2>
-    <p class="cap">Faint bars are each night; the line is a rolling weekly average.
-      The shaded band marks the 7–9h target.</p>
-    <div id="trend"></div>
+    <h2>Sleep timing &amp; trend</h2>
+    <p class="cap">Duration on top; the same data as actual clock time below.
+      Switch between recent nights and weekly aggregates.</p>
+    <div class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-view="last7">Last 7 days</button>
+      <button class="tab" role="tab" data-view="means">Weekly Means</button>
+      <button class="tab" role="tab" data-view="medians">Weekly Medians</button>
+    </div>
+
+    <div class="chart-block">
+      <div class="chart-title" id="durTitle">Hours slept &amp; 7-night trend</div>
+      <div id="trend"></div>
+    </div>
+    <div class="chart-block">
+      <div class="chart-title" id="clockTitle">When you slept (clock time)</div>
+      <div id="clock"></div>
+    </div>
   </section>
 
   <div class="cols">
@@ -448,44 +544,149 @@ function el(tag,attrs){{const e=document.createElementNS(SVGNS,tag);
   for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}}
 function css(v){{return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}}
 
-// ---- Trend chart -------------------------------------------------------- //
-(function(){{
-  const s=A.series, W=980,H=300,mL=42,mR=14,mT=14,mB=34;
-  const iw=W-mL-mR, ih=H-mT-mB;
+// ---- Clock helpers (minutes-since-noon -> "HH:MM") ---------------------- //
+function clockFromNoon(mins){{
+  let total=Math.round(mins)+720; total=((total%1440)+1440)%1440;
+  return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+}}
+
+// Normalise the active tab into a common item shape.
+function buildView(view){{
+  if(view==='last7'){{
+    const s=A.series.slice(-7);
+    return {{
+      hasRolling:true,
+      durNote:'Hours per night; line is the 7-night rolling average.',
+      clockNote:'Each bar spans bedtime to wake time for that night.',
+      items:s.map(d=>({{
+        label:d.date.slice(5), duration:d.duration, rolling:d.rolling,
+        bed_min:d.bed_min, wake_min:d.wake_min, bed:d.bed, wake:d.wake
+      }}))
+    }};
+  }}
+  const agg = view==='means'
+    ? {{b:'mean_bed_min',w:'mean_wake_min',d:'mean_dur',bc:'mean_bed',wc:'mean_wake'}}
+    : {{b:'med_bed_min', w:'med_wake_min', d:'med_dur', bc:'med_bed', wc:'med_wake'}};
+  const word = view==='means' ? 'Mean' : 'Median';
+  return {{
+    hasRolling:false,
+    durNote:word+' hours slept per week (last 8 weeks).',
+    clockNote:word+' bedtime to '+word.toLowerCase()+' wake time, per week.',
+    items:A.weekly.map(w=>({{
+      label:w.label, duration:w[agg.d], rolling:null,
+      bed_min:w[agg.b], wake_min:w[agg.w], bed:w[agg.bc], wake:w[agg.wc],
+      nights:w.nights
+    }}))
+  }};
+}}
+
+// ---- Duration chart (hours) --------------------------------------------- //
+function renderDuration(v){{
+  const s=v.items, host=document.getElementById('trend');
+  host.innerHTML='';
+  if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
+  const W=980,H=300,mL=42,mR=14,mT=14,mB=34, iw=W-mL-mR, ih=H-mT-mB;
   const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
   const maxD=Math.max(10, Math.ceil(Math.max(...s.map(d=>d.duration))));
-  const x=i=> mL + (s.length<=1?0:i*iw/(s.length-1));
-  const y=v=> mT + ih - (v/maxD)*ih;
+  const x=i=> mL + (s.length<=1?iw/2:i*iw/(s.length-1));
+  const y=val=> mT + ih - (val/maxD)*ih;
   // target band 7-9h
   svg.appendChild(el('rect',{{x:mL,y:y(9),width:iw,height:y(7)-y(9),
     fill:css('--good'),opacity:0.10}}));
-  // gridlines
   for(let h=0;h<=maxD;h+=2){{
     svg.appendChild(el('line',{{x1:mL,y1:y(h),x2:W-mR,y2:y(h),
       stroke:css('--line'),'stroke-width':1}}));
     const t=el('text',{{x:mL-8,y:y(h)+3,'text-anchor':'end'}});
     t.setAttribute('class','axis'); t.textContent=h+'h'; svg.appendChild(t);
   }}
-  // nightly bars
-  const bw=Math.max(1, iw/s.length*0.6);
+  const bw=Math.max(2, iw/s.length*0.6);
   s.forEach((d,i)=>{{
     svg.appendChild(el('rect',{{x:x(i)-bw/2,y:y(d.duration),
       width:bw,height:ih-(y(d.duration)-mT),
-      fill:css('--dawn2'),opacity:0.16,rx:1}}));
+      fill:css('--dawn2'),opacity:v.hasRolling?0.16:0.55,rx:2}}));
   }});
-  // rolling line
+  // line: rolling avg for last7, else connect the weekly points
   let path='';
-  s.forEach((d,i)=>{{path+=(i?'L':'M')+x(i)+' '+y(d.rolling);}});
+  s.forEach((d,i)=>{{const val=v.hasRolling?d.rolling:d.duration;
+    path+=(i?'L':'M')+x(i)+' '+y(val);}});
   svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
-    'stroke-width':2.5,'stroke-linejoin':'round'}}));
-  // x labels (~6 ticks)
-  const step=Math.max(1,Math.floor(s.length/6));
-  s.forEach((d,i)=>{{ if(i%step) return;
+    'stroke-width':2.5,'stroke-linejoin':'round',
+    opacity:v.hasRolling?1:0.5,
+    'stroke-dasharray':v.hasRolling?'':'5 4'}}));
+  const step=Math.max(1,Math.floor(s.length/8));
+  s.forEach((d,i)=>{{ if(i%step && i!==s.length-1) return;
     const t=el('text',{{x:x(i),y:H-12,'text-anchor':'middle'}});
-    t.setAttribute('class','axis'); t.textContent=d.date.slice(5); svg.appendChild(t);
+    t.setAttribute('class','axis'); t.textContent=d.label; svg.appendChild(t);
   }});
-  document.getElementById('trend').appendChild(svg);
-}})();
+  host.appendChild(svg);
+}}
+
+// ---- Clock-time chart (when sleep happened) ----------------------------- //
+function renderClock(v){{
+  const s=v.items, host=document.getElementById('clock');
+  host.innerHTML='';
+  if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
+  const W=980,H=300,mL=52,mR=14,mT=14,mB=34, iw=W-mL-mR, ih=H-mT-mB;
+  const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
+  // y domain from data (minutes-since-noon), padded to whole hours.
+  let lo=Math.min(...s.map(d=>d.bed_min)), hi=Math.max(...s.map(d=>d.wake_min));
+  lo=Math.floor((lo-30)/120)*120; hi=Math.ceil((hi+30)/120)*120;
+  const y=m=> mT + ih - ((m-lo)/(hi-lo))*ih;   // larger minutes-since-noon (later) -> higher on screen
+  // gridlines every 2 hours, labelled as clock time
+  for(let m=lo;m<=hi;m+=120){{
+    svg.appendChild(el('line',{{x1:mL,y1:y(m),x2:W-mR,y2:y(m),
+      stroke:css('--line'),'stroke-width':1}}));
+    const t=el('text',{{x:mL-8,y:y(m)+3,'text-anchor':'end'}});
+    t.setAttribute('class','axis'); t.textContent=clockFromNoon(m); svg.appendChild(t);
+  }}
+  const x=i=> mL + (s.length<=1?iw/2:i*iw/(s.length-1));
+  const bw=Math.max(3, iw/s.length*0.55);
+  s.forEach((d,i)=>{{
+    const yTop=y(d.wake_min), yBot=y(d.bed_min);   // wake is later -> smaller y (higher up)
+    const grad='barGrad';
+    svg.appendChild(el('rect',{{x:x(i)-bw/2,y:yTop,width:bw,
+      height:Math.max(1,yBot-yTop),rx:3,fill:'url(#barGrad)',opacity:0.9}}));
+  }});
+  // subtle centre line tracking mid-sleep
+  let path='';
+  s.forEach((d,i)=>{{const mid=(d.bed_min+d.wake_min)/2;
+    path+=(i?'L':'M')+x(i)+' '+y(mid);}});
+  svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
+    'stroke-width':1.5,opacity:0.35,'stroke-dasharray':'3 4'}}));
+  // defs gradient (bedtime warm at bottom -> wake cool at top)
+  const defs=el('defs',{{}});
+  const lg=el('linearGradient',{{id:'barGrad',x1:'0',y1:'0',x2:'0',y2:'1'}});
+  lg.appendChild(el('stop',{{offset:'0','stop-color':'var(--dawn3)'}}));
+  lg.appendChild(el('stop',{{offset:'1','stop-color':'var(--dawn1)'}}));
+  defs.appendChild(lg); svg.insertBefore(defs, svg.firstChild);
+  const step=Math.max(1,Math.floor(s.length/8));
+  s.forEach((d,i)=>{{ if(i%step && i!==s.length-1) return;
+    const t=el('text',{{x:x(i),y:H-12,'text-anchor':'middle'}});
+    t.setAttribute('class','axis'); t.textContent=d.label; svg.appendChild(t);
+  }});
+  host.appendChild(svg);
+}}
+
+// ---- Tab wiring --------------------------------------------------------- //
+function showView(view){{
+  const v=buildView(view);
+  document.getElementById('durTitle').textContent =
+    view==='last7' ? 'Hours slept & 7-night trend'
+    : (view==='means' ? 'Mean hours slept per week' : 'Median hours slept per week');
+  document.getElementById('clockTitle').textContent =
+    'When you slept — ' + (view==='last7' ? 'nightly clock time'
+      : (view==='means' ? 'weekly mean clock time' : 'weekly median clock time'));
+  renderDuration(v);
+  renderClock(v);
+}}
+document.querySelectorAll('.tab').forEach(btn=>{{
+  btn.addEventListener('click',()=>{{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    showView(btn.dataset.view);
+  }});
+}});
+showView('last7');
 
 // ---- Histogram ---------------------------------------------------------- //
 (function(){{
