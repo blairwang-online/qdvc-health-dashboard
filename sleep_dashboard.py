@@ -63,6 +63,19 @@ COMPOSITE_ARCHETYPES = [
     ["Redeye",        "Graveyard Shift","Vampire"],       # Bat
 ]
 
+# Short descriptions for the reference table, same row/column layout as above.
+COMPOSITE_BLURBS = [
+    ["Early to bed, early to rise — textbook.",
+     "In bed before midnight, up in the working hours.",
+     "Long night: down early, up late."],
+    ["Late down, early up — running on little.",
+     "Moderate at both ends.",
+     "The full late-night, late-morning owl."],
+    ["Up past 3am, up again by dawn — barely any sleep.",
+     "Up almost all night, normal-ish wake.",
+     "Shifted entirely into the night."],
+]
+
 
 # --------------------------------------------------------------------------- #
 # Data model & parsing
@@ -406,8 +419,57 @@ def analyse(nights: list[Night]) -> dict:
 # HTML rendering
 # --------------------------------------------------------------------------- #
 
+# Pill background colours (must match the .pill.bN / .pill.eN CSS below).
+_BEGIN_BG = ["#e3ecff", "#ede4fb", "#efe0f2"]   # Lark, Night Owl, Bat
+_END_BG   = ["#fde6d6", "#fdf0d3", "#e0efe4"]   # Baker, Commuter, Freelancer
+
+
+def _mix_hex(c1: str, c2: str) -> str:
+    """Average two #rrggbb colours."""
+    def comp(c):
+        return int(c[1:3], 16), int(c[3:5], 16), int(c[5:7], 16)
+    r1, g1, b1 = comp(c1)
+    r2, g2, b2 = comp(c2)
+    return f"#{(r1+r2)//2:02x}{(g1+g2)//2:02x}{(b1+b2)//2:02x}"
+
+
+def _reference_table_html() -> str:
+    """Build the static composite-archetype reference grid. Rows are begin
+    buckets, columns are end buckets; each cell blends the two pill colours."""
+    end_heads = "".join(
+        f'<th class="ref-endhead">{html.escape(lbl)}<span>wakes {when}</span></th>'
+        for lbl, when in zip(
+            [e[1] for e in END_ARCHETYPES], ["early", "mid", "late"]
+        )
+    )
+    rows = ""
+    for bi, (begin_lbl, when) in enumerate(
+        zip([b[1] for b in BEGIN_ARCHETYPES], ["early", "mid", "late"])
+    ):
+        cells = ""
+        for ei in range(len(END_ARCHETYPES)):
+            bg = _mix_hex(_BEGIN_BG[bi], _END_BG[ei])
+            name = html.escape(COMPOSITE_ARCHETYPES[bi][ei])
+            blurb = html.escape(COMPOSITE_BLURBS[bi][ei])
+            cells += (
+                f'<td class="ref-cell" style="background:{bg}">'
+                f'<span class="ref-name">{name}</span>'
+                f'<span class="ref-blurb">{blurb}</span></td>'
+            )
+        rows += (
+            f'<tr><th class="ref-rowhead">{html.escape(begin_lbl)}'
+            f'<span>sleeps {when}</span></th>{cells}</tr>'
+        )
+    return (
+        '<table class="reference">'
+        f'<thead><tr><th class="ref-corner"></th>{end_heads}</tr></thead>'
+        f'<tbody>{rows}</tbody></table>'
+    )
+
+
 def render_html(a: dict, warnings: list[str], source: str) -> str:
     data_json = json.dumps(a)
+    reference_table = _reference_table_html()
     warn_html = ""
     if warnings:
         items = "".join(f"<li>{html.escape(w)}</li>" for w in warnings[:12])
@@ -557,6 +619,30 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   }}
   .tablenote {{ margin:16px 0 0; color:var(--muted); font-size:12.5px;
     font-style:italic; }}
+
+  .ref-wrap {{ margin-top:28px; padding-top:22px; border-top:1px dashed var(--line);
+    overflow-x:auto; }}
+  table.reference {{ width:100%; border-collapse:separate; border-spacing:6px;
+    table-layout:fixed; min-width:560px; }}
+  table.reference th.ref-corner {{ width:110px; }}
+  table.reference th.ref-endhead, table.reference th.ref-rowhead {{
+    font-family:ui-monospace,monospace; font-size:12px; font-weight:600;
+    color:var(--ink); text-align:left; padding:6px 8px; vertical-align:middle;
+  }}
+  table.reference th span {{
+    display:block; font-size:10px; font-weight:400; letter-spacing:.04em;
+    text-transform:uppercase; color:var(--muted); margin-top:2px;
+  }}
+  table.reference th.ref-endhead {{ text-align:center; }}
+  table.reference th.ref-endhead span {{ text-align:center; }}
+  td.ref-cell {{
+    border-radius:10px; padding:11px 12px; vertical-align:top;
+    border:1px solid rgba(26,34,56,.05);
+  }}
+  td.ref-cell .ref-name {{ display:block; font-weight:600; font-size:14px;
+    color:var(--ink); }}
+  td.ref-cell .ref-blurb {{ display:block; font-size:11.5px; line-height:1.35;
+    color:#4a5170; margin-top:4px; }}
   @media (max-width:640px) {{
     table.archetype th:nth-child(2), table.archetype td:nth-child(2),
     table.archetype th:nth-child(3), table.archetype td:nth-child(3) {{
@@ -667,6 +753,11 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     <p class="tablenote">Each date's sleep record refers to the night before —
       e.g. the row for Mon 29 Jun covers the sleep that began on the evening of
       Sun 28 Jun.</p>
+
+    <div class="ref-wrap">
+      <div class="chart-title">Composite reference — how the two archetypes combine</div>
+      {reference_table}
+    </div>
   </section>
 
   <div class="cols">
@@ -819,8 +910,8 @@ function renderClock(v){{
   const defs=el('defs',{{}});
   const lg=el('linearGradient',{{id:'barGrad',gradientUnits:'userSpaceOnUse',
     x1:'0',y1:y(hi),x2:'0',y2:y(lo)}});
-  lg.appendChild(el('stop',{{offset:'0','stop-color':'var(--dawn1)'}}));   // top / latest
-  lg.appendChild(el('stop',{{offset:'1','stop-color':'var(--dawn3)'}}));   // bottom / earliest
+  lg.appendChild(el('stop',{{offset:'0','stop-color':'var(--dawn3)'}}));   // top / latest (wake) -> amber
+  lg.appendChild(el('stop',{{offset:'1','stop-color':'var(--dawn1)'}}));   // bottom / earliest (sleep) -> indigo
   defs.appendChild(lg); svg.appendChild(defs);
   for(let m=lo;m<=hi;m+=120){{
     svg.appendChild(el('line',{{x1:mL,y1:y(m),x2:W-mR,y2:y(m),
