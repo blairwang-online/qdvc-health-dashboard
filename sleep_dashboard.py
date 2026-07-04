@@ -49,31 +49,31 @@ BEGIN_ARCHETYPES = [
     (None,    "Bat"),           # 03:00 onward
 ]
 END_ARCHETYPES = [
-    ("06:00", "Baker"),         # before 6 AM
+    ("06:00", "Warrior"),       # before 6 AM
     ("08:00", "Commuter"),      # 06:00–07:59
-    (None,    "Freelancer"),    # 08:00 onward
+    (None,    "Philosopher"),   # 08:00 onward
 ]
 
 # Composite archetype for each (begin bucket index, end bucket index).
-# Rows = begin (Lark, Night Owl, Bat); columns = end (Baker, Commuter, Freelancer).
+# Rows = begin (Lark, Night Owl, Bat); columns = end (Warrior, Commuter, Philosopher).
 COMPOSITE_ARCHETYPES = [
-    # Baker            Commuter          Freelancer
-    ["Farmhand",      "Early Bird",     "Hibernator"],    # Lark
-    ["Short Straw",   "Steady Owl",     "Classic Owl"],   # Night Owl
-    ["Redeye",        "Graveyard Shift","Vampire"],       # Bat
+    # Warrior              Commuter             Philosopher
+    ["Rested Archer",     "Stockholm Winter",  "Dreaming Kierkegaard"],  # Lark
+    ["Classic Warrior",   "Classic Commuter",  "Classic Philosopher"],   # Night Owl
+    ["Besieged Defender", "Madrid Summer",     "Nocturnal Voltaire"],    # Bat
 ]
 
 # Short descriptions for the reference table, same row/column layout as above.
 COMPOSITE_BLURBS = [
-    ["Early to bed, early to rise — textbook.",
-     "In bed before midnight, up in the working hours.",
-     "Long night: down early, up late."],
-    ["Late down, early up — running on little.",
-     "Moderate at both ends.",
-     "The full late-night, late-morning owl."],
-    ["Up past 3am, up again by dawn — barely any sleep.",
-     "Up almost all night, normal-ish wake.",
-     "Shifted entirely into the night."],
+    ["Early to bed, early to rise — fresh and ready.",
+     "Sun sets early, so to bed early — but still up for the commute.",
+     "In bed early, up late — long hours abed, sleep as the height of genius."],
+    ["Down late, up early — the standard warrior's short rest.",
+     "Moderate at both ends — the everyday rhythm.",
+     "Sleeps around midnight, rises near noon — the classic thinker's clock."],
+    ["Up past 3am, still up early — a city under siege, too few defenders to rest.",
+     "Late timezone pushes bedtime back, but work still calls in the morning.",
+     "Works in bed till noon, dictates deep into the night — fully nocturnal."],
 ]
 
 
@@ -421,7 +421,7 @@ def analyse(nights: list[Night]) -> dict:
 
 # Pill background colours (must match the .pill.bN / .pill.eN CSS below).
 _BEGIN_BG = ["#e3ecff", "#ede4fb", "#efe0f2"]   # Lark, Night Owl, Bat
-_END_BG   = ["#fde6d6", "#fdf0d3", "#e0efe4"]   # Baker, Commuter, Freelancer
+_END_BG   = ["#fde6d6", "#fdf0d3", "#e0efe4"]   # Warrior, Commuter, Philosopher
 
 
 def _mix_hex(c1: str, c2: str) -> str:
@@ -610,9 +610,9 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   .pill.b1 {{ background:#ede4fb; color:#6b3fb0; }}   /* Night Owl */
   .pill.b2 {{ background:#efe0f2; color:#8a3d80; }}   /* Bat */
   /* end-time pills (earlier -> later) */
-  .pill.e0 {{ background:#fde6d6; color:#b4571f; }}   /* Baker */
+  .pill.e0 {{ background:#fde6d6; color:#b4571f; }}   /* Warrior */
   .pill.e1 {{ background:#fdf0d3; color:#9a7212; }}   /* Commuter */
-  .pill.e2 {{ background:#e0efe4; color:#2f7a4e; }}   /* Freelancer */
+  .pill.e2 {{ background:#e0efe4; color:#2f7a4e; }}   /* Philosopher */
   .pill.composite {{
     background:linear-gradient(135deg,var(--dawn1),var(--dawn2));
     color:#fff; font-weight:600;
