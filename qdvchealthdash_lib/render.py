@@ -8,9 +8,10 @@ import json
 from .config import (
     FONT_STACK, BEGIN_ARCHETYPES, END_ARCHETYPES,
     BEGIN_SUBTITLES, END_SUBTITLES,
-    COMPOSITE_ARCHETYPES, COMPOSITE_BLURBS, _sleep_hours_range,
+    COMPOSITE_ARCHETYPES, COMPOSITE_BLURBS,
+    COMPOSITE_DETAILS, COMPOSITE_HEALTH, _sleep_hours_range,
 )
-from .colors import _BEGIN_BG, _END_BG, _mix_hex, _pill_style
+from .colors import _BEGIN_BG, _END_BG, _mix_hex, _pill_style, _text_on
 from .data import _fmt_hm
 
 
@@ -36,7 +37,8 @@ def _reference_table_html() -> str:
             blurb = html.escape(COMPOSITE_BLURBS[bi][ei])
             hours = html.escape(_sleep_hours_range(bi, ei))
             cells += (
-                f'<td class="ref-cell" style="{_pill_style(bg)}">'
+                f'<td class="ref-cell persona-open" role="button" tabindex="0" '
+                f'data-bi="{bi}" data-ei="{ei}" style="{_pill_style(bg)}">'
                 f'<span class="ref-name">{name}</span>'
                 f'<span class="ref-hours">{hours}</span>'
                 f'<span class="ref-blurb">{blurb}</span></td>'
@@ -53,9 +55,35 @@ def _reference_table_html() -> str:
     )
 
 
+def _persona_cards() -> list[list[dict]]:
+    """Static content for each composite persona's modal card, indexed [bi][ei]
+    to match the reference grid and the table's bi/ei."""
+    begin_lbls = [b[1] for b in BEGIN_ARCHETYPES]
+    end_lbls = [e[1] for e in END_ARCHETYPES]
+    cards = []
+    for bi in range(len(BEGIN_ARCHETYPES)):
+        row = []
+        for ei in range(len(END_ARCHETYPES)):
+            bg = _mix_hex(_BEGIN_BG[bi], _END_BG[ei])
+            row.append({
+                "name": COMPOSITE_ARCHETYPES[bi][ei],
+                "hours": _sleep_hours_range(bi, ei),
+                "begin_label": begin_lbls[bi], "begin_sub": BEGIN_SUBTITLES[bi],
+                "end_label": end_lbls[ei], "end_sub": END_SUBTITLES[ei],
+                "begin_bg": _BEGIN_BG[bi], "begin_fg": _text_on(_BEGIN_BG[bi]),
+                "end_bg": _END_BG[ei], "end_fg": _text_on(_END_BG[ei]),
+                "bg": bg, "fg": _text_on(bg),
+                "detail": COMPOSITE_DETAILS[bi][ei],
+                "health": COMPOSITE_HEALTH[bi][ei],
+            })
+        cards.append(row)
+    return cards
+
+
 def render_html(a: dict, warnings: list[str], source: str) -> str:
     data_json = json.dumps(a)
     reference_table = _reference_table_html()
+    persona_cards_json = json.dumps(_persona_cards())
     warn_html = ""
     if warnings:
         items = "".join(f"<li>{html.escape(w)}</li>" for w in warnings[:12])
@@ -236,6 +264,45 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   }}
   .hexbtn:hover {{ box-shadow:0 3px 10px rgba(0,0,0,.3); }}
   .hexbtn.copied {{ color:var(--good); border-color:var(--good); }}
+
+  /* Persona-card affordance + modal */
+  .persona-open {{ cursor:pointer; transition:box-shadow .15s ease, transform .1s ease; }}
+  .ref-cell.persona-open:hover {{
+    box-shadow:0 6px 18px rgba(0,0,0,.28); transform:translateY(-2px);
+  }}
+  .pill.persona-open:hover {{ box-shadow:0 3px 10px rgba(0,0,0,.3); transform:translateY(-1px); }}
+  .persona-open:focus-visible {{ outline:2px solid var(--dawn2); outline-offset:2px; }}
+  .persona-head {{
+    align-items:flex-start; border-radius:18px 18px 0 0; padding:20px 24px;
+    margin:-1px -1px 0;  /* cover the modal border under the tinted header */
+  }}
+  .persona-eyebrow {{
+    font-family:ui-monospace,monospace; font-size:10.5px; letter-spacing:.14em;
+    text-transform:uppercase; opacity:.8; margin-bottom:4px;
+  }}
+  .persona-head h2 {{ font-size:24px; }}
+  .persona-tags {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    margin:18px 0 8px; }}
+  .persona-tag {{
+    display:inline-flex; flex-direction:column; align-items:flex-start;
+    padding:6px 12px; border-radius:12px; font-weight:600; font-size:13.5px;
+    line-height:1.25;
+  }}
+  .persona-tag small {{ font-weight:400; font-size:10.5px; opacity:.85;
+    font-family:ui-monospace,monospace; margin-top:2px; }}
+  .persona-plus {{ color:var(--muted); font-weight:600; }}
+  .persona-hours {{
+    font-family:ui-monospace,monospace; font-size:12.5px; color:var(--muted);
+    margin-bottom:6px;
+  }}
+  .persona-section {{ margin-top:18px; }}
+  .persona-section h3 {{
+    font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 8px;
+  }}
+  .persona-section p {{ margin:0; font-size:14.5px; line-height:1.55; color:var(--ink); }}
+  .persona-disclaimer {{ margin-top:10px !important; font-size:12px !important;
+    color:var(--muted) !important; font-style:italic; }}
 
   @media (max-width:900px) {{
     .page {{ grid-template-columns:1fr; }}
@@ -646,8 +713,37 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   </div>
 </div>
 
+<div id="personaModal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="personaTitle">
+    <div class="modal-head persona-head" id="personaHead">
+      <div>
+        <div class="persona-eyebrow">Sleep persona</div>
+        <h2 id="personaTitle">—</h2>
+      </div>
+      <button id="personaClose" class="modal-close" type="button"
+              aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="persona-tags" id="personaTags"></div>
+      <div class="persona-hours" id="personaHours"></div>
+      <div class="persona-section">
+        <h3>About this persona</h3>
+        <p id="personaDetail"></p>
+      </div>
+      <div class="persona-section">
+        <h3>Health considerations</h3>
+        <p id="personaHealth"></p>
+        <p class="persona-disclaimer">General guidance based on your archetype —
+          not medical advice. If sleep is regularly affecting how you feel, a
+          clinician can offer personalised help.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const A = {data_json};
+const PERSONA_CARDS = {persona_cards_json};
 
 // Animate the score arc.
 (function(){{
@@ -887,6 +983,10 @@ showView('last7');
   }}
   const pill=(txt,bg,fg)=>
     '<span class="pill" style="background:'+bg+';color:'+fg+'">'+txt+'</span>';
+  const compPill=(txt,bg,fg,bi,ei)=>
+    '<span class="pill persona-open" role="button" tabindex="0" '
+    + 'data-bi="'+bi+'" data-ei="'+ei+'" '
+    + 'style="background:'+bg+';color:'+fg+'">'+txt+'</span>';
   A.table7.forEach(r=>{{
     const tr=document.createElement('tr');
     tr.innerHTML =
@@ -895,7 +995,7 @@ showView('last7');
       '<td class="time">'+r.end+'</td>'+
       '<td>'+pill(r.begin_type, r.begin_bg, r.begin_fg)+'</td>'+
       '<td>'+pill(r.end_type,   r.end_bg,   r.end_fg)+'</td>'+
-      '<td>'+pill(r.composite,  r.comp_bg,  r.comp_fg)+'</td>';
+      '<td>'+compPill(r.composite, r.comp_bg, r.comp_fg, r.bi, r.ei)+'</td>';
     tbody.appendChild(tr);
   }});
 }})();
@@ -1159,6 +1259,60 @@ showView('last7');
   function open(){{ overlay.hidden=false; document.body.style.overflow='hidden'; }}
   function close(){{ overlay.hidden=true; document.body.style.overflow=''; }}
   openBtn.addEventListener('click', open);
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {{ if(e.target===overlay) close(); }});
+  document.addEventListener('keydown', (e) => {{ if(e.key==='Escape' && !overlay.hidden) close(); }});
+}})();
+
+// ---- Persona cards modal ------------------------------------------------ //
+(function(){{
+  const overlay = document.getElementById('personaModal');
+  const head = document.getElementById('personaHead');
+  const titleEl = document.getElementById('personaTitle');
+  const tagsEl = document.getElementById('personaTags');
+  const hoursEl = document.getElementById('personaHours');
+  const detailEl = document.getElementById('personaDetail');
+  const healthEl = document.getElementById('personaHealth');
+  const closeBtn = document.getElementById('personaClose');
+
+  function tag(txt, bg, fg, sub){{
+    return '<span class="persona-tag" style="background:'+bg+';color:'+fg+'">'
+      + txt + (sub ? '<small>'+sub+'</small>' : '') + '</span>';
+  }}
+
+  function openCard(bi, ei){{
+    const c = (PERSONA_CARDS[bi]||[])[ei];
+    if(!c) return;
+    titleEl.textContent = c.name;
+    // Tint the header with the persona's blended colour.
+    head.style.background = c.bg;
+    head.style.color = c.fg;
+    // ensure the eyebrow + close inherit readable colour on the tint
+    head.querySelectorAll('.persona-eyebrow, h2, .modal-close')
+        .forEach(el => el.style.color = c.fg);
+    tagsEl.innerHTML =
+      tag(c.begin_label, c.begin_bg, c.begin_fg, c.begin_sub)
+      + '<span class="persona-plus">+</span>'
+      + tag(c.end_label, c.end_bg, c.end_fg, c.end_sub);
+    hoursEl.textContent = c.hours;
+    detailEl.textContent = c.detail;
+    healthEl.textContent = c.health;
+    overlay.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }}
+  function close(){{ overlay.hidden=true; document.body.style.overflow=''; }}
+
+  // Delegate clicks/keys from any persona trigger (reference cells + composite pills).
+  function handle(e){{
+    const t = e.target.closest('.persona-open');
+    if(!t) return;
+    if(e.type==='keydown' && e.key!=='Enter' && e.key!==' ') return;
+    if(e.type==='keydown') e.preventDefault();
+    openCard(+t.dataset.bi, +t.dataset.ei);
+  }}
+  document.addEventListener('click', handle);
+  document.addEventListener('keydown', handle);
+
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', (e) => {{ if(e.target===overlay) close(); }});
   document.addEventListener('keydown', (e) => {{ if(e.key==='Escape' && !overlay.hidden) close(); }});

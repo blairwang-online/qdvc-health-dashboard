@@ -206,6 +206,7 @@ def analyse(nights: list[Night]) -> dict:
             "begin_type": classify_begin(n.start),
             "end_type": classify_end(n.end),
             "composite": classify_composite(n.start, n.end),
+            "bi": bi, "ei": ei,
             "begin_bg": _BEGIN_BG[bi], "begin_fg": _text_on(_BEGIN_BG[bi]),
             "end_bg": _END_BG[ei],     "end_fg": _text_on(_END_BG[ei]),
             "comp_bg": comp_bg,        "comp_fg": _text_on(comp_bg),

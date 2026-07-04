@@ -78,6 +78,91 @@ COMPOSITE_BLURBS = [
      "Works in bed till noon, dictates deep into the night — fully nocturnal."],
 ]
 
+# Longer explanation shown in the persona modal card (one per composite).
+COMPOSITE_DETAILS = [
+    [  # Sleeps early + …
+        "The Rested Archer is in bed before midnight and up before dawn — the "
+        "textbook 'early to bed, early to rise' rhythm. With an early bedtime "
+        "and an early rise, sleep tends to land squarely in the body's natural "
+        "night-time window, so nights are usually full and mornings start sharp.",
+        "Stockholm Winter goes down early — as if the sun set at 3pm and took "
+        "the evening with it — yet still rises for the morning commute. The "
+        "early bedtime buys a comfortably long night despite the ordinary wake time.",
+        "Dreaming Kierkegaard is in bed early and rises late, spending long "
+        "unhurried hours abed. In the spirit of the philosopher who prized "
+        "staying under the covers, this pattern maximises time asleep — often "
+        "well beyond what the body strictly needs.",
+    ],
+    [  # Around midnight + …
+        "The Classic Warrior falls asleep around midnight but is up early for "
+        "duty — a deliberately short night. It's a disciplined, front-loaded "
+        "schedule that trades hours in bed for an early start.",
+        "The Classic Commuter sleeps around midnight and wakes in the normal "
+        "working-hours window — the most common, middle-of-the-road rhythm, "
+        "moderate at both ends.",
+        "The Classic Philosopher drifts off near midnight and rises toward "
+        "late morning — the unhurried thinker's clock, shifted a little later "
+        "than the commuter but with a comfortably full night.",
+    ],
+    [  # Super late + …
+        "The Besieged Defender is up past 3am yet still rises early — like a "
+        "city under siege with too few defenders to allow a full night's rest. "
+        "It's the shortest pattern of all, with very few hours between lights-out "
+        "and reveille.",
+        "Madrid Summer keeps late hours — a late-running clock pushes bedtime "
+        "well past midnight — but work still calls in the morning, so the night "
+        "is squeezed from the front.",
+        "Nocturnal Voltaire is fully shifted into the night: down in the small "
+        "hours, up toward late morning, working and resting on a clock offset "
+        "from the daylight world.",
+    ],
+]
+
+# Health considerations if sleep is *regularly* classified to this composite.
+# Framed as general, non-alarming guidance — not medical advice.
+COMPOSITE_HEALTH = [
+    [  # Sleeps early + …
+        "This pattern generally supports good sleep: an early, consistent "
+        "bedtime aligned with darkness tends to protect deep sleep. If you feel "
+        "sleepy well before your planned bedtime or wake much earlier than "
+        "intended, gentle evening light exposure can help nudge the clock later.",
+        "A long, early-anchored night usually leaves you well rested. Keep an "
+        "eye on very early bedtimes creeping earlier over time; a little evening "
+        "activity or light can keep your schedule from drifting too far forward.",
+        "Regularly spending very long stretches in bed can sometimes mean "
+        "lighter, more fragmented sleep rather than more restorative sleep. If "
+        "you're in bed 10+ hours but still feel unrefreshed, it's worth reflecting "
+        "on sleep quality, and a clinician can help if daytime tiredness persists.",
+    ],
+    [  # Around midnight + …
+        "Waking early after a midnight bedtime can add up to a short night. If "
+        "you regularly get under ~7 hours and feel the deficit, protecting an "
+        "earlier bedtime — even by 30 minutes — is usually the highest-leverage "
+        "change.",
+        "This balanced, moderate rhythm is a sustainable middle ground for most "
+        "people. Consistency day to day (including weekends) tends to matter more "
+        "for how you feel than the exact times themselves.",
+        "A midnight-to-late-morning rhythm can be perfectly healthy when it's "
+        "consistent and fits your life. If a late rise clashes with daytime "
+        "commitments, gradually shifting both ends earlier is gentler than forcing "
+        "an abrupt change.",
+    ],
+    [  # Super late + …
+        "Very late nights with early rises make for a persistently short sleep "
+        "window, and regularly running on little sleep is worth taking seriously "
+        "— it can affect mood, focus, and health over time. If this is your usual "
+        "pattern, prioritising a longer window when you can, and speaking with a "
+        "clinician if it's unavoidable or exhausting, are both reasonable steps.",
+        "Consistently late bedtimes against a fixed morning alarm tend to build "
+        "a sleep debt across the week. Winding down earlier, and limiting bright "
+        "screens and stimulants late in the evening, can help bedtime arrive sooner.",
+        "A fully night-shifted schedule can be workable, but living offset from "
+        "daylight can affect mood, metabolism, and social rhythm over the long run. "
+        "Anchoring consistent sleep and wake times, and getting daylight during "
+        "your waking hours, help; a clinician can advise if it's affecting how you feel.",
+    ],
+]
+
 
 def _sleep_hours_range(bi: int, ei: int) -> str:
     """Approximate range of hours slept for a composite cell, from the bucket
