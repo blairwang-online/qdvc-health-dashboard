@@ -1,0 +1,644 @@
+"""HTML rendering: the composite reference grid and the full dashboard page."""
+
+from __future__ import annotations
+
+import html
+import json
+
+from .config import (
+    FONT_STACK, BEGIN_ARCHETYPES, END_ARCHETYPES,
+    BEGIN_SUBTITLES, END_SUBTITLES,
+    COMPOSITE_ARCHETYPES, COMPOSITE_BLURBS, _sleep_hours_range,
+)
+from .colors import _BEGIN_BG, _END_BG, _mix_hex, _pill_style
+from .data import _fmt_hm
+
+
+def _reference_table_html() -> str:
+    """Build the static composite-archetype reference grid. Rows are begin
+    buckets, columns are end buckets; each cell blends the two spectrum colours
+    and shows the composite name, a blurb, and an approximate hours-slept range."""
+    end_heads = "".join(
+        f'<th class="ref-endhead">'
+        f'<span class="ref-tag" style="{_pill_style(_END_BG[ei])}">{html.escape(lbl)}</span>'
+        f'<span class="ref-sub">{html.escape(sub)}</span></th>'
+        for ei, (lbl, sub) in enumerate(
+            zip([e[1] for e in END_ARCHETYPES], END_SUBTITLES)
+        )
+    )
+    rows = ""
+    for bi, begin_lbl in enumerate([b[1] for b in BEGIN_ARCHETYPES]):
+        sub = BEGIN_SUBTITLES[bi]
+        cells = ""
+        for ei in range(len(END_ARCHETYPES)):
+            bg = _mix_hex(_BEGIN_BG[bi], _END_BG[ei])
+            name = html.escape(COMPOSITE_ARCHETYPES[bi][ei])
+            blurb = html.escape(COMPOSITE_BLURBS[bi][ei])
+            hours = html.escape(_sleep_hours_range(bi, ei))
+            cells += (
+                f'<td class="ref-cell" style="{_pill_style(bg)}">'
+                f'<span class="ref-name">{name}</span>'
+                f'<span class="ref-hours">{hours}</span>'
+                f'<span class="ref-blurb">{blurb}</span></td>'
+            )
+        rows += (
+            f'<tr><th class="ref-rowhead">'
+            f'<span class="ref-tag" style="{_pill_style(_BEGIN_BG[bi])}">{html.escape(begin_lbl)}</span>'
+            f'<span class="ref-sub">{html.escape(sub)}</span></th>{cells}</tr>'
+        )
+    return (
+        '<table class="reference">'
+        f'<thead><tr><th class="ref-corner"></th>{end_heads}</tr></thead>'
+        f'<tbody>{rows}</tbody></table>'
+    )
+
+
+def render_html(a: dict, warnings: list[str], source: str) -> str:
+    data_json = json.dumps(a)
+    reference_table = _reference_table_html()
+    warn_html = ""
+    if warnings:
+        items = "".join(f"<li>{html.escape(w)}</li>" for w in warnings[:12])
+        more = "" if len(warnings) <= 12 else f"<li>… and {len(warnings) - 12} more</li>"
+        warn_html = f'<details class="warn"><summary>{len(warnings)} data note(s)</summary><ul>{items}{more}</ul></details>'
+
+    score = a["score"]
+    verdict = (
+        "Well rested" if score >= 80 else
+        "On track" if score >= 65 else
+        "Room to improve" if score >= 50 else
+        "Needs attention"
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleep Health Dashboard</title>
+<style>
+  :root {{
+    --ink:#1a2238; --muted:#6b7394; --line:#e3e6f0;
+    --paper:#fbfbfd; --card:#ffffff;
+    --dawn1:#3a4a8c; --dawn2:#8a6bd1; --dawn3:#f2a65a;
+    --good:#4c9a7a; --warn:#d98443; --bad:#c65f5f;
+    --shadow:0 1px 2px rgba(26,34,56,.05),0 8px 24px rgba(26,34,56,.06);
+  }}
+  * {{ box-sizing:border-box; }}
+  body {{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:{FONT_STACK};
+    -webkit-font-smoothing:antialiased;
+  }}
+  .wrap {{ max-width:1040px; margin:0 auto; padding:40px 24px 72px; }}
+  header {{ margin-bottom:8px; }}
+  .eyebrow {{
+    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12px;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--muted);
+  }}
+  h1 {{ font-size:38px; line-height:1.1; margin:6px 0 4px; font-weight:600; }}
+  .sub {{ color:var(--muted); font-size:15px; }}
+
+  /* Hero: the sleep-health score as an arc */
+  .hero {{
+    display:grid; grid-template-columns:auto 1fr; gap:36px;
+    align-items:center; margin:32px 0 28px; padding:28px 32px;
+    background:linear-gradient(135deg,#f4f2fb,#fdf6ef);
+    border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow);
+  }}
+  .gauge {{ position:relative; width:184px; height:184px; }}
+  .gauge .val {{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+  }}
+  .gauge .num {{ font-size:52px; font-weight:600; line-height:1; }}
+  .gauge .of {{ font-size:13px; color:var(--muted); margin-top:4px;
+    font-family:ui-monospace,monospace; }}
+  .verdict {{ font-size:26px; margin:0 0 6px; }}
+  .verdict small {{ display:block; font-size:14px; color:var(--muted);
+    font-family:ui-monospace,monospace; letter-spacing:.04em; margin-top:8px;}}
+  .breakdown {{ margin-top:14px; display:flex; gap:22px; flex-wrap:wrap; }}
+  .breakdown div {{ font-size:13px; color:var(--muted); }}
+  .breakdown b {{ display:block; font-size:22px; color:var(--ink); font-weight:600; }}
+
+  .grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:26px; }}
+  .stat {{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px 18px 16px; box-shadow:var(--shadow);
+  }}
+  .stat .k {{ font-family:ui-monospace,monospace; font-size:11px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }}
+  .stat .v {{ font-size:30px; font-weight:600; margin-top:6px; }}
+  .stat .n {{ font-size:12.5px; color:var(--muted); margin-top:2px; }}
+
+  .panel {{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 24px; box-shadow:var(--shadow); margin-bottom:22px;
+  }}
+  .panel h2 {{ font-size:19px; margin:0 0 2px; font-weight:600; }}
+  .panel p.cap {{ margin:0 0 16px; color:var(--muted); font-size:13.5px; }}
+
+  .tabs {{
+    display:inline-flex; gap:4px; margin:6px 0 22px; padding:4px;
+    background:#eef0f7; border:1px solid var(--line); border-radius:12px;
+  }}
+  .tab {{
+    appearance:none; border:1px solid transparent; cursor:pointer;
+    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12.5px;
+    letter-spacing:.02em; color:var(--muted); padding:8px 16px;
+    border-radius:9px; transition:all .15s ease; white-space:nowrap;
+  }}
+  .tab:hover {{ color:var(--ink); background:rgba(255,255,255,.55); }}
+  .tab.active {{
+    color:var(--dawn1); font-weight:600; background:var(--card);
+    border-color:var(--line);
+    box-shadow:0 1px 2px rgba(26,34,56,.08), 0 2px 6px rgba(58,74,140,.10);
+  }}
+  .tab.active::before {{
+    content:""; display:inline-block; width:7px; height:7px; border-radius:50%;
+    margin-right:7px; vertical-align:middle;
+    background:linear-gradient(135deg,var(--dawn2),var(--dawn3));
+  }}
+  .tab:focus-visible {{ outline:2px solid var(--dawn2); outline-offset:2px; }}
+  .chart-block {{ margin-top:8px; }}
+  .chart-block + .chart-block {{ margin-top:26px; padding-top:22px;
+    border-top:1px dashed var(--line); }}
+  .chart-title {{
+    font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:10px;
+  }}
+  .cols {{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }}
+  svg {{ display:block; width:100%; height:auto; overflow:visible; }}
+  .axis {{ font-family:ui-monospace,monospace; font-size:10.5px; fill:var(--muted); }}
+  .axis-top {{ font-weight:600; fill:var(--ink); }}
+  .axis-date {{ fill:var(--muted); }}
+
+  table.archetype {{ width:100%; border-collapse:collapse; margin-top:4px; }}
+  table.archetype th {{
+    text-align:left; font-family:ui-monospace,monospace; font-size:10.5px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+    font-weight:600; padding:0 12px 10px; border-bottom:1px solid var(--line);
+  }}
+  table.archetype td {{
+    padding:12px; border-bottom:1px solid var(--line); font-size:15px;
+    vertical-align:middle;
+  }}
+  table.archetype tr:last-child td {{ border-bottom:0; }}
+  table.archetype td.date {{ font-weight:600; white-space:nowrap; }}
+  table.archetype td.time {{ font-family:ui-monospace,monospace; font-size:14px;
+    color:var(--ink); }}
+  .pill {{
+    display:inline-block; padding:4px 12px; border-radius:999px;
+    font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap;
+  }}
+  .tablenote {{ margin:16px 0 0; color:var(--muted); font-size:12.5px;
+    font-style:italic; }}
+
+  .ref-wrap {{ margin-top:28px; padding-top:22px; border-top:1px dashed var(--line);
+    overflow-x:auto; }}
+  table.reference {{ width:100%; border-collapse:separate; border-spacing:6px;
+    table-layout:fixed; min-width:560px; }}
+  table.reference th.ref-corner {{ width:130px; }}
+  table.reference th.ref-endhead, table.reference th.ref-rowhead {{
+    text-align:left; padding:6px 8px; vertical-align:middle;
+  }}
+  table.reference .ref-tag {{
+    display:inline-block; padding:4px 12px; border-radius:999px;
+    font-family:ui-monospace,monospace; font-size:12px; font-weight:600;
+    line-height:1.3;
+  }}
+  table.reference .ref-sub {{
+    display:block; font-family:ui-monospace,monospace; font-size:10px;
+    font-weight:400; letter-spacing:.04em; color:var(--muted); margin-top:4px;
+  }}
+  table.reference th.ref-endhead {{ text-align:center; }}
+  td.ref-cell {{
+    border-radius:10px; padding:11px 12px; vertical-align:top;
+    border:1px solid rgba(26,34,56,.08);
+  }}
+  td.ref-cell .ref-name {{ display:block; font-weight:700; font-size:14px;
+    color:inherit; }}
+  td.ref-cell .ref-hours {{ display:block; font-family:ui-monospace,monospace;
+    font-size:10.5px; font-weight:600; letter-spacing:.02em; margin-top:3px;
+    color:inherit; opacity:.8; }}
+  td.ref-cell .ref-blurb {{ display:block; font-size:11.5px; line-height:1.35;
+    color:inherit; opacity:.85; margin-top:6px; }}
+  @media (max-width:640px) {{
+    table.archetype th:nth-child(2), table.archetype td:nth-child(2),
+    table.archetype th:nth-child(3), table.archetype td:nth-child(3) {{
+      display:none;  /* hide raw times on very narrow screens */
+    }}
+  }}
+  .warn {{ font-size:13px; color:var(--muted); margin-top:8px; }}
+  .warn summary {{ cursor:pointer; }}
+  .warn ul {{ margin:8px 0 0; padding-left:18px; }}
+  footer {{ color:var(--muted); font-size:12px; margin-top:28px;
+    font-family:ui-monospace,monospace; }}
+  @media (max-width:760px) {{
+    .hero {{ grid-template-columns:1fr; text-align:center; justify-items:center; }}
+    .grid {{ grid-template-columns:repeat(2,1fr); }}
+    .cols {{ grid-template-columns:1fr; }}
+  }}
+  @media (prefers-reduced-motion:no-preference) {{
+    .arc-fg {{ animation:draw 1.1s ease-out forwards; }}
+    @keyframes draw {{ from {{ stroke-dashoffset:var(--circ); }} }}
+  }}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Sleep Health · {a['date_from']} → {a['date_to']}</div>
+    <h1>Your sleep, at a glance</h1>
+    <div class="sub">{a['recorded']} nights recorded over {a['span_days']} days
+      · {a['coverage']}% coverage</div>
+  </header>
+
+  <section class="hero">
+    <div class="gauge">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <defs>
+          <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--dawn1)"/>
+            <stop offset="0.5" stop-color="var(--dawn2)"/>
+            <stop offset="1" stop-color="var(--dawn3)"/>
+          </linearGradient>
+        </defs>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="var(--line)" stroke-width="12"/>
+        <circle id="scoreArc" class="arc-fg" cx="60" cy="60" r="50" fill="none"
+                stroke="url(#arc)" stroke-width="12" stroke-linecap="round"
+                transform="rotate(-90 60 60)"/>
+      </svg>
+      <div class="val"><span class="num">{score}</span><span class="of">/ 100</span></div>
+    </div>
+    <div>
+      <p class="verdict">{verdict}
+        <small>Blends sleep duration (50%), night-to-night consistency (25%),
+        and schedule regularity (25%).</small></p>
+      <div class="breakdown">
+        <div><b>{a['dur_score']}</b>Duration</div>
+        <div><b>{a['cons_score']}</b>Consistency</div>
+        <div><b>{a['reg_score']}</b>Regularity</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="stat"><div class="k">Avg / night</div>
+      <div class="v">{_fmt_hm(a['avg'])}</div>
+      <div class="n">median {_fmt_hm(a['median'])}</div></div>
+    <div class="stat"><div class="k">Typical bedtime</div>
+      <div class="v">{a['avg_bed']}</div>
+      <div class="n">± {a['bed_sd_min']/60:.1f}h swing</div></div>
+    <div class="stat"><div class="k">Typical wake</div>
+      <div class="v">{a['avg_wake']}</div>
+      <div class="n">± {a['wake_sd_min']/60:.1f}h swing</div></div>
+    <div class="stat"><div class="k">In 7–9h range</div>
+      <div class="v">{round(100*a['nights_7_9']/a['recorded'])}%</div>
+      <div class="n">{a['nights_7_9']} of {a['recorded']} nights</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Sleep timing &amp; trend</h2>
+    <p class="cap">Duration on top; the same data as actual clock time below.
+      Switch between recent nights and weekly aggregates.</p>
+    <div class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-view="last7">Last 7 days</button>
+      <button class="tab" role="tab" data-view="means">Weekly Means</button>
+      <button class="tab" role="tab" data-view="medians">Weekly Medians</button>
+    </div>
+
+    <div class="chart-block">
+      <div class="chart-title" id="durTitle">Hours slept &amp; 7-night trend</div>
+      <div id="trend"></div>
+    </div>
+    <div class="chart-block">
+      <div class="chart-title" id="clockTitle">When you slept (clock time)</div>
+      <div id="clock"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Sleep archetypes — past 7 days</h2>
+    <p class="cap">Each night classified by when you fell asleep and when you woke.</p>
+    <table class="archetype" id="archetypeTable">
+      <thead>
+        <tr>
+          <th>Date</th><th>Asleep</th><th>Awake</th>
+          <th>Begin archetype</th><th>End archetype</th><th>Composite</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p class="tablenote">Each date's sleep record refers to the night before —
+      e.g. the row for Mon 29 Jun covers the sleep that began on the evening of
+      Sun 28 Jun.</p>
+
+    <div class="ref-wrap">
+      <div class="chart-title">Composite reference — how the two archetypes combine</div>
+      {reference_table}
+    </div>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>How long you sleep</h2>
+      <p class="cap">Distribution of nightly duration.</p>
+      <div id="hist"></div>
+    </section>
+    <section class="panel">
+      <h2>By day of week</h2>
+      <p class="cap">Average hours slept, grouped by the morning you woke.</p>
+      <div id="weekday"></div>
+    </section>
+  </div>
+
+  {warn_html}
+  <footer>Generated from {html.escape(source)} · not medical advice.</footer>
+</div>
+
+<script>
+const A = {data_json};
+
+// Animate the score arc.
+(function(){{
+  const r=50, circ=2*Math.PI*r, arc=document.getElementById('scoreArc');
+  const frac=Math.max(0,Math.min(1,A.score/100));
+  arc.style.setProperty('--circ', circ);
+  arc.setAttribute('stroke-dasharray', circ);
+  arc.setAttribute('stroke-dashoffset', circ*(1-frac));
+}})();
+
+const SVGNS='http://www.w3.org/2000/svg';
+function el(tag,attrs){{const e=document.createElementNS(SVGNS,tag);
+  for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}}
+function css(v){{return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}}
+
+// Band scale: each item gets an equal-width slot; bars are centred in their
+// slot and never exceed it. Endpoints stay fully inside the plot area (unlike
+// point spacing, which pins the first/last item to the margins and lets wide
+// bars bleed out when there are few items).
+function bandScale(n, mL, iw){{
+  const slot = iw / Math.max(1, n);
+  return {{
+    slot,
+    center: i => mL + slot * (i + 0.5),
+    barWidth: Math.max(2, Math.min(slot * 0.62, 64)),  // capped so 1–2 items look sane
+  }};
+}}
+
+// Two-line x-axis tick: weekday/"Week of" on top, date beneath.
+function twoLineLabel(svg, cx, yBase, top, bottom){{
+  const t1 = el('text', {{x:cx, y:yBase, 'text-anchor':'middle'}});
+  t1.setAttribute('class','axis axis-top'); t1.textContent = top;
+  svg.appendChild(t1);
+  const t2 = el('text', {{x:cx, y:yBase + 13, 'text-anchor':'middle'}});
+  t2.setAttribute('class','axis axis-date'); t2.textContent = bottom;
+  svg.appendChild(t2);
+}}
+
+// ---- Clock helpers (minutes-since-noon -> "HH:MM") ---------------------- //
+function clockFromNoon(mins){{
+  let total=Math.round(mins)+720; total=((total%1440)+1440)%1440;
+  return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+}}
+
+// Time-of-day colour: mirrors the Python _tod_rgb. Anchors come from A.tod_anchors
+// (minute-of-day on a 20:00-based axis -> [r,g,b]). Input is minute-of-day 0–1440.
+function todRgb(minuteOfDay){{
+  const A0=A.tod_anchors;
+  let m=((minuteOfDay%1440)+1440)%1440;
+  if(m < 20*60) m+=1440;
+  for(let i=0;i<A0.length-1;i++){{
+    const [m0,c0]=A0[i], [m1,c1]=A0[i+1];
+    if(m>=m0 && m<=m1){{
+      const t=(m-m0)/(m1-m0);
+      return [0,1,2].map(k=>Math.round(c0[k]+(c1[k]-c0[k])*t));
+    }}
+  }}
+  return A0[A0.length-1][1];
+}}
+function todHex(minuteOfDay){{
+  const c=todRgb(minuteOfDay);
+  return '#'+c.map(x=>x.toString(16).padStart(2,'0')).join('');
+}}
+// Axis value is minutes-since-noon; convert to minute-of-day for the palette.
+function todHexFromNoon(minsSinceNoon){{
+  return todHex(((Math.round(minsSinceNoon)+720)%1440+1440)%1440);
+}}
+
+// Normalise the active tab into a common item shape.
+function buildView(view){{
+  if(view==='last7'){{
+    const s=A.series.slice(-7);
+    return {{
+      hasRolling:true,
+      durNote:'Hours per night; line is the 7-night rolling average.',
+      clockNote:'Each bar spans bedtime to wake time for that night.',
+      items:s.map(d=>({{
+        dow:d.dow, dm:d.dm, duration:d.duration, rolling:d.rolling,
+        bed_min:d.bed_min, wake_min:d.wake_min, bed:d.bed, wake:d.wake
+      }}))
+    }};
+  }}
+  const agg = view==='means'
+    ? {{b:'mean_bed_min',w:'mean_wake_min',d:'mean_dur',bc:'mean_bed',wc:'mean_wake'}}
+    : {{b:'med_bed_min', w:'med_wake_min', d:'med_dur', bc:'med_bed', wc:'med_wake'}};
+  const word = view==='means' ? 'Mean' : 'Median';
+  return {{
+    hasRolling:false,
+    durNote:word+' hours slept per week (last 8 weeks).',
+    clockNote:word+' bedtime to '+word.toLowerCase()+' wake time, per week.',
+    items:A.weekly.map(w=>({{
+      dow:w.dow, dm:w.dm, duration:w[agg.d], rolling:null,
+      bed_min:w[agg.b], wake_min:w[agg.w], bed:w[agg.bc], wake:w[agg.wc],
+      nights:w.nights
+    }}))
+  }};
+}}
+
+// ---- Duration chart (hours) --------------------------------------------- //
+function renderDuration(v){{
+  const s=v.items, host=document.getElementById('trend');
+  host.innerHTML='';
+  if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
+  const W=980,H=310,mL=42,mR=14,mT=14,mB=48, iw=W-mL-mR, ih=H-mT-mB;
+  const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
+  const maxD=Math.max(10, Math.ceil(Math.max(...s.map(d=>d.duration))));
+  const B=bandScale(s.length, mL, iw);
+  const cx=i=>B.center(i);
+  const y=val=> mT + ih - (val/maxD)*ih;
+  // target band 7-9h
+  svg.appendChild(el('rect',{{x:mL,y:y(9),width:iw,height:y(7)-y(9),
+    fill:css('--good'),opacity:0.10}}));
+  for(let h=0;h<=maxD;h+=2){{
+    svg.appendChild(el('line',{{x1:mL,y1:y(h),x2:W-mR,y2:y(h),
+      stroke:css('--line'),'stroke-width':1}}));
+    const t=el('text',{{x:mL-8,y:y(h)+3,'text-anchor':'end'}});
+    t.setAttribute('class','axis'); t.textContent=h+'h'; svg.appendChild(t);
+  }}
+  s.forEach((d,i)=>{{
+    svg.appendChild(el('rect',{{x:cx(i)-B.barWidth/2,y:y(d.duration),
+      width:B.barWidth,height:ih-(y(d.duration)-mT),
+      fill:css('--dawn2'),opacity:v.hasRolling?0.16:0.55,rx:2}}));
+  }});
+  // line: rolling avg for last7, else connect the weekly points
+  let path='';
+  s.forEach((d,i)=>{{const val=v.hasRolling?d.rolling:d.duration;
+    path+=(i?'L':'M')+cx(i)+' '+y(val);}});
+  svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
+    'stroke-width':2.5,'stroke-linejoin':'round',
+    opacity:v.hasRolling?1:0.5,
+    'stroke-dasharray':v.hasRolling?'':'5 4'}}));
+  const step=Math.max(1,Math.ceil(s.length/8));
+  s.forEach((d,i)=>{{ if(i%step && i!==s.length-1) return;
+    twoLineLabel(svg, cx(i), H-24, d.dow, d.dm);
+  }});
+  host.appendChild(svg);
+}}
+
+// ---- Clock-time chart (when sleep happened) ----------------------------- //
+function renderClock(v){{
+  const s=v.items, host=document.getElementById('clock');
+  host.innerHTML='';
+  if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
+  const W=980,H=310,mL=52,mR=14,mT=14,mB=48, iw=W-mL-mR, ih=H-mT-mB;
+  const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
+  // y domain from data (minutes-since-noon), padded to whole 2-hour marks.
+  let lo=Math.min(...s.map(d=>d.bed_min)), hi=Math.max(...s.map(d=>d.wake_min));
+  lo=Math.floor((lo-30)/120)*120; hi=Math.ceil((hi+30)/120)*120;
+  const y=m=> mT + ih - ((m-lo)/(hi-lo))*ih;   // larger minutes-since-noon (later) -> higher on screen
+  // Gradient anchored to the axis in user space (not per-bar), so a given
+  // clock time is always the same colour on every bar. Colours come from the
+  // shared time-of-day palette, sampled across the visible range so each
+  // y-value shows the colour of the time of day it represents.
+  const defs=el('defs',{{}});
+  const lg=el('linearGradient',{{id:'barGrad',gradientUnits:'userSpaceOnUse',
+    x1:'0',y1:y(hi),x2:'0',y2:y(lo)}});
+  const STEP=15;  // minutes between gradient stops
+  for(let m=hi; m>=lo; m-=STEP){{
+    const off=(y(m)-y(hi))/(y(lo)-y(hi));   // 0 at top (hi), 1 at bottom (lo)
+    lg.appendChild(el('stop',{{offset:off.toFixed(4),'stop-color':todHexFromNoon(m)}}));
+  }}
+  defs.appendChild(lg); svg.appendChild(defs);
+  for(let m=lo;m<=hi;m+=120){{
+    svg.appendChild(el('line',{{x1:mL,y1:y(m),x2:W-mR,y2:y(m),
+      stroke:css('--line'),'stroke-width':1}}));
+    const t=el('text',{{x:mL-8,y:y(m)+3,'text-anchor':'end'}});
+    t.setAttribute('class','axis'); t.textContent=clockFromNoon(m); svg.appendChild(t);
+  }}
+  const B=bandScale(s.length, mL, iw);
+  const cx=i=>B.center(i);
+  s.forEach((d,i)=>{{
+    const yTop=y(d.wake_min), yBot=y(d.bed_min);   // wake is later -> smaller y (higher up)
+    svg.appendChild(el('rect',{{x:cx(i)-B.barWidth/2,y:yTop,width:B.barWidth,
+      height:Math.max(1,yBot-yTop),rx:3,fill:'url(#barGrad)',opacity:0.9}}));
+  }});
+  // subtle centre line tracking mid-sleep
+  let path='';
+  s.forEach((d,i)=>{{const mid=(d.bed_min+d.wake_min)/2;
+    path+=(i?'L':'M')+cx(i)+' '+y(mid);}});
+  svg.appendChild(el('path',{{d:path,fill:'none',stroke:css('--dawn1'),
+    'stroke-width':1.5,opacity:0.35,'stroke-dasharray':'3 4'}}));
+  const step=Math.max(1,Math.ceil(s.length/8));
+  s.forEach((d,i)=>{{ if(i%step && i!==s.length-1) return;
+    twoLineLabel(svg, cx(i), H-24, d.dow, d.dm);
+  }});
+  host.appendChild(svg);
+}}
+
+// ---- Tab wiring --------------------------------------------------------- //
+function showView(view){{
+  const v=buildView(view);
+  document.getElementById('durTitle').textContent =
+    view==='last7' ? 'Hours slept & 7-night trend'
+    : (view==='means' ? 'Mean hours slept per week' : 'Median hours slept per week');
+  document.getElementById('clockTitle').textContent =
+    'When you slept — ' + (view==='last7' ? 'nightly clock time'
+      : (view==='means' ? 'weekly mean clock time' : 'weekly median clock time'));
+  renderDuration(v);
+  renderClock(v);
+}}
+document.querySelectorAll('.tab').forEach(btn=>{{
+  btn.addEventListener('click',()=>{{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    showView(btn.dataset.view);
+  }});
+}});
+showView('last7');
+
+// ---- Archetype table ---------------------------------------------------- //
+(function(){{
+  const tbody=document.querySelector('#archetypeTable tbody');
+  if(!A.table7.length){{
+    tbody.innerHTML='<tr><td colspan="6" class="axis">No recent data.</td></tr>';
+    return;
+  }}
+  const pill=(txt,bg,fg)=>
+    '<span class="pill" style="background:'+bg+';color:'+fg+'">'+txt+'</span>';
+  A.table7.forEach(r=>{{
+    const tr=document.createElement('tr');
+    tr.innerHTML =
+      '<td class="date">'+r.date+'</td>'+
+      '<td class="time">'+r.begin+'</td>'+
+      '<td class="time">'+r.end+'</td>'+
+      '<td>'+pill(r.begin_type, r.begin_bg, r.begin_fg)+'</td>'+
+      '<td>'+pill(r.end_type,   r.end_bg,   r.end_fg)+'</td>'+
+      '<td>'+pill(r.composite,  r.comp_bg,  r.comp_fg)+'</td>';
+    tbody.appendChild(tr);
+  }});
+}})();
+
+// ---- Histogram ---------------------------------------------------------- //
+(function(){{
+  const b=A.buckets, keys=Object.keys(b), vals=keys.map(k=>b[k]);
+  const W=460,H=260,mL=34,mR=12,mT=12,mB=40;
+  const iw=W-mL-mR, ih=H-mT-mB, max=Math.max(1,...vals);
+  const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
+  const bw=iw/keys.length*0.68, gap=iw/keys.length;
+  keys.forEach((k,i)=>{{
+    const h=vals[i]/max*ih, cx=mL+i*gap+gap/2;
+    const good=(k==='7–8h'||k==='8–9h');
+    svg.appendChild(el('rect',{{x:cx-bw/2,y:mT+ih-h,width:bw,height:h,rx:3,
+      fill:good?css('--good'):css('--dawn2'),opacity:good?0.9:0.55}}));
+    const val=el('text',{{x:cx,y:mT+ih-h-6,'text-anchor':'middle'}});
+    val.setAttribute('class','axis'); val.textContent=vals[i]||''; svg.appendChild(val);
+    const lab=el('text',{{x:cx,y:H-14,'text-anchor':'middle'}});
+    lab.setAttribute('class','axis'); lab.textContent=k; svg.appendChild(lab);
+  }});
+  svg.appendChild(el('line',{{x1:mL,y1:mT+ih,x2:W-mR,y2:mT+ih,
+    stroke:css('--line')}}));
+  document.getElementById('hist').appendChild(svg);
+}})();
+
+// ---- Weekday chart ------------------------------------------------------ //
+(function(){{
+  const names=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], w=A.weekday_avg;
+  const W=460,H=260,mL=34,mR=12,mT=12,mB=40;
+  const iw=W-mL-mR, ih=H-mT-mB;
+  const max=Math.max(10,...w.filter(v=>v!=null));
+  const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
+  const bw=iw/7*0.6, gap=iw/7;
+  // target line at 8h
+  const y8=mT+ih-(8/max)*ih;
+  svg.appendChild(el('line',{{x1:mL,y1:y8,x2:W-mR,y2:y8,
+    stroke:css('--good'),'stroke-dasharray':'4 4','stroke-width':1.5,opacity:.6}}));
+  names.forEach((nm,i)=>{{
+    const cx=mL+i*gap+gap/2, v=w[i];
+    if(v!=null){{
+      const h=v/max*ih;
+      svg.appendChild(el('rect',{{x:cx-bw/2,y:mT+ih-h,width:bw,height:h,rx:3,
+        fill:i>=5?css('--dawn3'):css('--dawn1'),opacity:.8}}));
+      const val=el('text',{{x:cx,y:mT+ih-h-6,'text-anchor':'middle'}});
+      val.setAttribute('class','axis'); val.textContent=v.toFixed(1); svg.appendChild(val);
+    }}
+    const lab=el('text',{{x:cx,y:H-14,'text-anchor':'middle'}});
+    lab.setAttribute('class','axis'); lab.textContent=nm; svg.appendChild(lab);
+  }});
+  svg.appendChild(el('line',{{x1:mL,y1:mT+ih,x2:W-mR,y2:mT+ih,stroke:css('--line')}}));
+  document.getElementById('weekday').appendChild(svg);
+}})();
+</script>
+</body>
+</html>"""
