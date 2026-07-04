@@ -38,6 +38,31 @@ from dataclasses import dataclass
 # available family wins, falling back rightward.
 FONT_STACK = "'Andika','Iowan Old Style','Palatino Linotype',Georgia,serif"
 
+# Sleep-archetype classification. Thresholds are clock times (24h "HH:MM").
+# Each entry is (upper_bound_exclusive, label). The last entry uses None as an
+# open-ended upper bound. Times are interpreted on a "night" clock where the
+# evening/early-morning ordering is: 18:00 → 23:59 → 00:00 → 12:00.
+# Customise the labels freely; the brainstormed names can be dropped in here.
+BEGIN_ARCHETYPES = [
+    ("00:00", "Lark"),          # before midnight
+    ("03:00", "Night Owl"),     # 00:00–02:59
+    (None,    "Bat"),           # 03:00 onward
+]
+END_ARCHETYPES = [
+    ("06:00", "Baker"),         # before 6 AM
+    ("08:00", "Commuter"),      # 06:00–07:59
+    (None,    "Freelancer"),    # 08:00 onward
+]
+
+# Composite archetype for each (begin bucket index, end bucket index).
+# Rows = begin (Lark, Night Owl, Bat); columns = end (Baker, Commuter, Freelancer).
+COMPOSITE_ARCHETYPES = [
+    # Baker            Commuter          Freelancer
+    ["Farmhand",      "Early Bird",     "Hibernator"],    # Lark
+    ["Short Straw",   "Steady Owl",     "Classic Owl"],   # Night Owl
+    ["Redeye",        "Graveyard Shift","Vampire"],       # Bat
+]
+
 
 # --------------------------------------------------------------------------- #
 # Data model & parsing
@@ -148,6 +173,52 @@ def _fmt_hm(hours: float) -> str:
     if m == 60:
         h, m = h + 1, 0
     return f"{h}h {m:02d}m"
+
+
+def _classify_idx(minutes: float, table) -> int:
+    """Return the bucket index for a clock time (minutes) given a
+    (upper_bound, label) threshold table."""
+    for i, (bound, _label) in enumerate(table):
+        if bound is None:
+            return i
+        bh, bm = map(int, bound.split(":"))
+        if minutes < bh * 60 + bm:
+            return i
+    return len(table) - 1
+
+
+def _classify(minutes_after_midnight: float, table) -> str:
+    return table[_classify_idx(minutes_after_midnight, table)][1]
+
+
+def _begin_minutes_for_class(start: dt.datetime) -> float:
+    """Sleep-begin time as minutes after midnight for classification.
+    Evening times (>= 18:00) count as 'before midnight' — represented as a
+    negative offset so they sort below 00:00 and land in the first bucket."""
+    m = start.hour * 60 + start.minute
+    if m >= 18 * 60:          # 18:00–23:59 -> before midnight
+        return m - 24 * 60    # e.g. 23:00 -> -60  (< 0, i.e. first bucket)
+    return m                  # 00:00–~12:00 kept as-is
+
+
+def begin_idx(start: dt.datetime) -> int:
+    return _classify_idx(_begin_minutes_for_class(start), BEGIN_ARCHETYPES)
+
+
+def end_idx(end: dt.datetime) -> int:
+    return _classify_idx(end.hour * 60 + end.minute, END_ARCHETYPES)
+
+
+def classify_begin(start: dt.datetime) -> str:
+    return BEGIN_ARCHETYPES[begin_idx(start)][1]
+
+
+def classify_end(end: dt.datetime) -> str:
+    return END_ARCHETYPES[end_idx(end)][1]
+
+
+def classify_composite(start: dt.datetime, end: dt.datetime) -> str:
+    return COMPOSITE_ARCHETYPES[begin_idx(start)][end_idx(end)]
 
 
 def _weekly_series(nights: list[Night], weeks_back: int = 8) -> list[dict]:
@@ -288,6 +359,18 @@ def analyse(nights: list[Night]) -> dict:
     # Weekly aggregations (mean & median) for the last 8 ISO weeks present.
     weekly = _weekly_series(nights, weeks_back=8)
 
+    # Last-7-nights archetype table (newest first).
+    table7 = []
+    for n in reversed(nights[-7:]):
+        table7.append({
+            "date": n.wake_date.strftime("%a %-d %b"),   # e.g. "Sun 28 Jun"
+            "begin": n.start.strftime("%H:%M"),
+            "end": n.end.strftime("%H:%M"),
+            "begin_type": classify_begin(n.start),
+            "end_type": classify_end(n.end),
+            "composite": classify_composite(n.start, n.end),
+        })
+
     return {
         "recorded": recorded,
         "span_days": span_days,
@@ -312,6 +395,9 @@ def analyse(nights: list[Night]) -> dict:
         "weekday_avg": weekday_avg,
         "series": series,
         "weekly": weekly,
+        "table7": table7,
+        "begin_labels": [lbl for _, lbl in BEGIN_ARCHETYPES],
+        "end_labels": [lbl for _, lbl in END_ARCHETYPES],
         "nights_7_9": sum(1 for d in durations if 7 <= d <= 9),
     }
 
@@ -438,6 +524,45 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   .axis {{ font-family:ui-monospace,monospace; font-size:10.5px; fill:var(--muted); }}
   .axis-top {{ font-weight:600; fill:var(--ink); }}
   .axis-date {{ fill:var(--muted); }}
+
+  table.archetype {{ width:100%; border-collapse:collapse; margin-top:4px; }}
+  table.archetype th {{
+    text-align:left; font-family:ui-monospace,monospace; font-size:10.5px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+    font-weight:600; padding:0 12px 10px; border-bottom:1px solid var(--line);
+  }}
+  table.archetype td {{
+    padding:12px; border-bottom:1px solid var(--line); font-size:15px;
+    vertical-align:middle;
+  }}
+  table.archetype tr:last-child td {{ border-bottom:0; }}
+  table.archetype td.date {{ font-weight:600; white-space:nowrap; }}
+  table.archetype td.time {{ font-family:ui-monospace,monospace; font-size:14px;
+    color:var(--ink); }}
+  .pill {{
+    display:inline-block; padding:4px 12px; border-radius:999px;
+    font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap;
+  }}
+  /* begin-time pills (earlier -> later) */
+  .pill.b0 {{ background:#e3ecff; color:#2f4a8c; }}   /* Lark */
+  .pill.b1 {{ background:#ede4fb; color:#6b3fb0; }}   /* Night Owl */
+  .pill.b2 {{ background:#efe0f2; color:#8a3d80; }}   /* Bat */
+  /* end-time pills (earlier -> later) */
+  .pill.e0 {{ background:#fde6d6; color:#b4571f; }}   /* Baker */
+  .pill.e1 {{ background:#fdf0d3; color:#9a7212; }}   /* Commuter */
+  .pill.e2 {{ background:#e0efe4; color:#2f7a4e; }}   /* Freelancer */
+  .pill.composite {{
+    background:linear-gradient(135deg,var(--dawn1),var(--dawn2));
+    color:#fff; font-weight:600;
+  }}
+  .tablenote {{ margin:16px 0 0; color:var(--muted); font-size:12.5px;
+    font-style:italic; }}
+  @media (max-width:640px) {{
+    table.archetype th:nth-child(2), table.archetype td:nth-child(2),
+    table.archetype th:nth-child(3), table.archetype td:nth-child(3) {{
+      display:none;  /* hide raw times on very narrow screens */
+    }}
+  }}
   .warn {{ font-size:13px; color:var(--muted); margin-top:8px; }}
   .warn summary {{ cursor:pointer; }}
   .warn ul {{ margin:8px 0 0; padding-left:18px; }}
@@ -525,6 +650,23 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
       <div class="chart-title" id="clockTitle">When you slept (clock time)</div>
       <div id="clock"></div>
     </div>
+  </section>
+
+  <section class="panel">
+    <h2>Sleep archetypes — past 7 days</h2>
+    <p class="cap">Each night classified by when you fell asleep and when you woke.</p>
+    <table class="archetype" id="archetypeTable">
+      <thead>
+        <tr>
+          <th>Date</th><th>Asleep</th><th>Awake</th>
+          <th>Begin archetype</th><th>End archetype</th><th>Composite</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p class="tablenote">Each date's sleep record refers to the night before —
+      e.g. the row for Mon 29 Jun covers the sleep that began on the evening of
+      Sun 28 Jun.</p>
   </section>
 
   <div class="cols">
@@ -667,16 +809,19 @@ function renderClock(v){{
   if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
   const W=980,H=310,mL=52,mR=14,mT=14,mB=48, iw=W-mL-mR, ih=H-mT-mB;
   const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
-  // defs gradient (bedtime warm at bottom -> wake cool at top)
-  const defs=el('defs',{{}});
-  const lg=el('linearGradient',{{id:'barGrad',x1:'0',y1:'0',x2:'0',y2:'1'}});
-  lg.appendChild(el('stop',{{offset:'0','stop-color':'var(--dawn3)'}}));
-  lg.appendChild(el('stop',{{offset:'1','stop-color':'var(--dawn1)'}}));
-  defs.appendChild(lg); svg.appendChild(defs);
   // y domain from data (minutes-since-noon), padded to whole 2-hour marks.
   let lo=Math.min(...s.map(d=>d.bed_min)), hi=Math.max(...s.map(d=>d.wake_min));
   lo=Math.floor((lo-30)/120)*120; hi=Math.ceil((hi+30)/120)*120;
   const y=m=> mT + ih - ((m-lo)/(hi-lo))*ih;   // larger minutes-since-noon (later) -> higher on screen
+  // Gradient anchored to the axis in user space (not per-bar), so a given
+  // clock time is always the same colour on every bar. y(hi) is the top of
+  // the plot (latest time, cool) and y(lo) the bottom (earliest, warm).
+  const defs=el('defs',{{}});
+  const lg=el('linearGradient',{{id:'barGrad',gradientUnits:'userSpaceOnUse',
+    x1:'0',y1:y(hi),x2:'0',y2:y(lo)}});
+  lg.appendChild(el('stop',{{offset:'0','stop-color':'var(--dawn1)'}}));   // top / latest
+  lg.appendChild(el('stop',{{offset:'1','stop-color':'var(--dawn3)'}}));   // bottom / earliest
+  defs.appendChild(lg); svg.appendChild(defs);
   for(let m=lo;m<=hi;m+=120){{
     svg.appendChild(el('line',{{x1:mL,y1:y(m),x2:W-mR,y2:y(m),
       stroke:css('--line'),'stroke-width':1}}));
@@ -723,6 +868,28 @@ document.querySelectorAll('.tab').forEach(btn=>{{
   }});
 }});
 showView('last7');
+
+// ---- Archetype table ---------------------------------------------------- //
+(function(){{
+  const tbody=document.querySelector('#archetypeTable tbody');
+  const bIdx=Object.fromEntries(A.begin_labels.map((l,i)=>[l,i]));
+  const eIdx=Object.fromEntries(A.end_labels.map((l,i)=>[l,i]));
+  if(!A.table7.length){{
+    tbody.innerHTML='<tr><td colspan="6" class="axis">No recent data.</td></tr>';
+    return;
+  }}
+  A.table7.forEach(r=>{{
+    const tr=document.createElement('tr');
+    tr.innerHTML =
+      '<td class="date">'+r.date+'</td>'+
+      '<td class="time">'+r.begin+'</td>'+
+      '<td class="time">'+r.end+'</td>'+
+      '<td><span class="pill b'+bIdx[r.begin_type]+'">'+r.begin_type+'</span></td>'+
+      '<td><span class="pill e'+eIdx[r.end_type]+'">'+r.end_type+'</span></td>'+
+      '<td><span class="pill composite">'+r.composite+'</span></td>';
+    tbody.appendChild(tr);
+  }});
+}})();
 
 // ---- Histogram ---------------------------------------------------------- //
 (function(){{
