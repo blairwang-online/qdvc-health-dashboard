@@ -449,6 +449,7 @@ def analyse(nights: list[Night]) -> dict:
         "table7": table7,
         "begin_labels": [lbl for _, lbl in BEGIN_ARCHETYPES],
         "end_labels": [lbl for _, lbl in END_ARCHETYPES],
+        "tod_anchors": [[m, list(c)] for m, c in _TOD_ANCHORS],
         "nights_7_9": sum(1 for d in durations if 7 <= d <= 9),
     }
 
@@ -457,12 +458,61 @@ def analyse(nights: list[Night]) -> dict:
 # HTML rendering
 # --------------------------------------------------------------------------- #
 
-# Archetype colour spectrums. Begin-sleep uses a narrow cool spectrum
-# (light blue → deep purple); end-sleep uses a distinct warm spectrum
-# (amber → pale yellow). Composites are a 50/50 blend of the two inputs,
-# so a cell's colour is legible as "cool axis + warm axis".
-_BEGIN_BG = ["#cfe0ff", "#8f7bd6", "#4a3a8c"]   # early → around midnight → super late
-_END_BG   = ["#f0a552", "#f5cd77", "#f7ecc0"]   # Warrior → Commuter → Philosopher
+# --------------------------------------------------------------------------- #
+# Time-of-day colour scheme
+# --------------------------------------------------------------------------- #
+# A single continuous function maps any clock time (0–1440 min) to a colour,
+# forming a smooth loop over 24 hours. Anchors (minute-of-day -> colour):
+#   20:00 light baby blue -> 00:00 royal blue -> 03:00 purple -> 05:00 crimson
+#   -> 07:00 amber/orange -> 12:00 pale yellow -> (loop back to baby blue at 20:00)
+# Everything colour-coded by time (the clock chart, archetype tags, composites)
+# samples this one function, so the whole dashboard shares a consistent palette.
+_TOD_ANCHORS = [
+    (20 * 60, (0xBF, 0xDD, 0xF5)),   # 20:00 light baby blue
+    (24 * 60, (0x2A, 0x3C, 0xA8)),   # 24:00 royal blue
+    (27 * 60, (0x6B, 0x3F, 0xB0)),   # 03:00 (as 27:00) purple
+    (29 * 60, (0xC6, 0x2F, 0x45)),   # 05:00 (as 29:00) crimson red
+    (31 * 60, (0xF2, 0x8A, 0x2E)),   # 07:00 (as 31:00) amber/orange
+    (36 * 60, (0xF7, 0xEC, 0xB8)),   # 12:00 (as 36:00) pale yellow
+    (44 * 60, (0xBF, 0xDD, 0xF5)),   # 20:00 (as 44:00) back to baby blue
+]
+
+
+def _tod_rgb(minute_of_day: float) -> tuple[int, int, int]:
+    """Interpolate the time-of-day colour for a clock time in minutes (0–1440).
+    The anchor table runs on a 20:00-based axis (evening → next midday → evening)
+    so the curve is monotonic to interpolate; times before 20:00 are lifted by
+    24h to land in the correct segment."""
+    m = minute_of_day % 1440
+    if m < 20 * 60:          # 00:00–19:59 belongs to the +24h part of the loop
+        m += 1440
+    for (m0, c0), (m1, c1) in zip(_TOD_ANCHORS, _TOD_ANCHORS[1:]):
+        if m0 <= m <= m1:
+            t = (m - m0) / (m1 - m0)
+            return tuple(round(c0[i] + (c1[i] - c0[i]) * t) for i in range(3))
+    return _TOD_ANCHORS[-1][1]
+
+
+def _rgb_hex(rgb: tuple[int, int, int]) -> str:
+    return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+
+
+def _tod_hex(minute_of_day: float) -> str:
+    return _rgb_hex(_tod_rgb(minute_of_day))
+
+
+def _clock(hhmm: str) -> int:
+    h, m = int(hhmm[:2]), int(hhmm[3:])
+    return h * 60 + m
+
+
+# Representative clock time for each archetype bucket, used to sample the
+# time-of-day palette so tags/composites match the clock chart's colours.
+_BEGIN_SAMPLE = ["22:00", "01:30", "04:00"]   # early / around midnight / super late
+_END_SAMPLE   = ["05:30", "07:00", "09:00"]   # Warrior / Commuter / Philosopher
+
+_BEGIN_BG = [_tod_hex(_clock(t)) for t in _BEGIN_SAMPLE]
+_END_BG   = [_tod_hex(_clock(t)) for t in _END_SAMPLE]
 
 
 def _mix_hex(c1: str, c2: str) -> str:
@@ -491,8 +541,12 @@ def _reference_table_html() -> str:
     buckets, columns are end buckets; each cell blends the two spectrum colours
     and shows the composite name, a blurb, and an approximate hours-slept range."""
     end_heads = "".join(
-        f'<th class="ref-endhead">{html.escape(lbl)}<span>{html.escape(sub)}</span></th>'
-        for lbl, sub in zip([e[1] for e in END_ARCHETYPES], END_SUBTITLES)
+        f'<th class="ref-endhead">'
+        f'<span class="ref-tag" style="{_pill_style(_END_BG[ei])}">{html.escape(lbl)}</span>'
+        f'<span class="ref-sub">{html.escape(sub)}</span></th>'
+        for ei, (lbl, sub) in enumerate(
+            zip([e[1] for e in END_ARCHETYPES], END_SUBTITLES)
+        )
     )
     rows = ""
     for bi, begin_lbl in enumerate([b[1] for b in BEGIN_ARCHETYPES]):
@@ -510,8 +564,9 @@ def _reference_table_html() -> str:
                 f'<span class="ref-blurb">{blurb}</span></td>'
             )
         rows += (
-            f'<tr><th class="ref-rowhead">{html.escape(begin_lbl)}'
-            f'<span>{html.escape(sub)}</span></th>{cells}</tr>'
+            f'<tr><th class="ref-rowhead">'
+            f'<span class="ref-tag" style="{_pill_style(_BEGIN_BG[bi])}">{html.escape(begin_lbl)}</span>'
+            f'<span class="ref-sub">{html.escape(sub)}</span></th>{cells}</tr>'
         )
     return (
         '<table class="reference">'
@@ -665,17 +720,20 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     overflow-x:auto; }}
   table.reference {{ width:100%; border-collapse:separate; border-spacing:6px;
     table-layout:fixed; min-width:560px; }}
-  table.reference th.ref-corner {{ width:120px; }}
+  table.reference th.ref-corner {{ width:130px; }}
   table.reference th.ref-endhead, table.reference th.ref-rowhead {{
-    font-family:ui-monospace,monospace; font-size:12px; font-weight:600;
-    color:var(--ink); text-align:left; padding:6px 8px; vertical-align:middle;
+    text-align:left; padding:6px 8px; vertical-align:middle;
   }}
-  table.reference th span {{
-    display:block; font-size:10px; font-weight:400; letter-spacing:.04em;
-    text-transform:none; color:var(--muted); margin-top:2px;
+  table.reference .ref-tag {{
+    display:inline-block; padding:4px 12px; border-radius:999px;
+    font-family:ui-monospace,monospace; font-size:12px; font-weight:600;
+    line-height:1.3;
+  }}
+  table.reference .ref-sub {{
+    display:block; font-family:ui-monospace,monospace; font-size:10px;
+    font-weight:400; letter-spacing:.04em; color:var(--muted); margin-top:4px;
   }}
   table.reference th.ref-endhead {{ text-align:center; }}
-  table.reference th.ref-endhead span {{ text-align:center; }}
   td.ref-cell {{
     border-radius:10px; padding:11px 12px; vertical-align:top;
     border:1px solid rgba(26,34,56,.08);
@@ -867,6 +925,30 @@ function clockFromNoon(mins){{
   return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
 }}
 
+// Time-of-day colour: mirrors the Python _tod_rgb. Anchors come from A.tod_anchors
+// (minute-of-day on a 20:00-based axis -> [r,g,b]). Input is minute-of-day 0–1440.
+function todRgb(minuteOfDay){{
+  const A0=A.tod_anchors;
+  let m=((minuteOfDay%1440)+1440)%1440;
+  if(m < 20*60) m+=1440;
+  for(let i=0;i<A0.length-1;i++){{
+    const [m0,c0]=A0[i], [m1,c1]=A0[i+1];
+    if(m>=m0 && m<=m1){{
+      const t=(m-m0)/(m1-m0);
+      return [0,1,2].map(k=>Math.round(c0[k]+(c1[k]-c0[k])*t));
+    }}
+  }}
+  return A0[A0.length-1][1];
+}}
+function todHex(minuteOfDay){{
+  const c=todRgb(minuteOfDay);
+  return '#'+c.map(x=>x.toString(16).padStart(2,'0')).join('');
+}}
+// Axis value is minutes-since-noon; convert to minute-of-day for the palette.
+function todHexFromNoon(minsSinceNoon){{
+  return todHex(((Math.round(minsSinceNoon)+720)%1440+1440)%1440);
+}}
+
 // Normalise the active tab into a common item shape.
 function buildView(view){{
   if(view==='last7'){{
@@ -949,13 +1031,17 @@ function renderClock(v){{
   lo=Math.floor((lo-30)/120)*120; hi=Math.ceil((hi+30)/120)*120;
   const y=m=> mT + ih - ((m-lo)/(hi-lo))*ih;   // larger minutes-since-noon (later) -> higher on screen
   // Gradient anchored to the axis in user space (not per-bar), so a given
-  // clock time is always the same colour on every bar. y(hi) is the top of
-  // the plot (latest time, cool) and y(lo) the bottom (earliest, warm).
+  // clock time is always the same colour on every bar. Colours come from the
+  // shared time-of-day palette, sampled across the visible range so each
+  // y-value shows the colour of the time of day it represents.
   const defs=el('defs',{{}});
   const lg=el('linearGradient',{{id:'barGrad',gradientUnits:'userSpaceOnUse',
     x1:'0',y1:y(hi),x2:'0',y2:y(lo)}});
-  lg.appendChild(el('stop',{{offset:'0','stop-color':'var(--dawn3)'}}));   // top / latest (wake) -> amber
-  lg.appendChild(el('stop',{{offset:'1','stop-color':'var(--dawn1)'}}));   // bottom / earliest (sleep) -> indigo
+  const STEP=15;  // minutes between gradient stops
+  for(let m=hi; m>=lo; m-=STEP){{
+    const off=(y(m)-y(hi))/(y(lo)-y(hi));   // 0 at top (hi), 1 at bottom (lo)
+    lg.appendChild(el('stop',{{offset:off.toFixed(4),'stop-color':todHexFromNoon(m)}}));
+  }}
   defs.appendChild(lg); svg.appendChild(defs);
   for(let m=lo;m<=hi;m+=120){{
     svg.appendChild(el('line',{{x1:mL,y1:y(m),x2:W-mR,y2:y(m),
