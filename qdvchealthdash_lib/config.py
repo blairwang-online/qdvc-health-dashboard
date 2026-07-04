@@ -10,6 +10,18 @@ from __future__ import annotations
 # available family wins, falling back rightward.
 FONT_STACK = "'Andika','Iowan Old Style','Palatino Linotype',Georgia,serif"
 
+# Decision-support: the "Perfect Asleep Time" (PAT) that Targeted Asleep Time
+# (TAT) tilts toward, as "HH:MM". TAT is nudged some fraction of the way from
+# the user's habitual bedtime toward PAT (fraction chosen by the on-page slider).
+PERFECT_ASLEEP_TIME = "22:00"
+
+# TAT model weights (see analysis/JS notes). Habit is the anchor; the trend and
+# wake-time terms fine-tune it; the PAT pull is applied last as a fraction.
+TAT_MEDIAN_WEIGHT = 0.7   # habit = 0.7*median + 0.3*mean of last-7 begin times
+TAT_TREND_FACTOR  = 0.5   # apply half the day-over-day begin-time drift
+TAT_WAKE_FACTOR   = 0.2   # nudge per minute today's wake deviates from typical
+TAT_CLAMP = ("21:00", "03:00")   # hard floor/ceiling for TAT (9PM–3AM)
+
 
 BEGIN_ARCHETYPES = [
     ("00:00", "Sleeps early"),           # before midnight

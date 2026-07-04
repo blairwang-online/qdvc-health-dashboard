@@ -167,6 +167,55 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em;
     text-transform:uppercase; color:var(--muted); margin-bottom:10px;
   }}
+
+  /* Decision support */
+  .ds-ambition {{ margin:4px 0 22px; max-width:420px; }}
+  .ds-ambition label {{
+    display:block; font-family:ui-monospace,monospace; font-size:11px;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+    margin-bottom:8px;
+  }}
+  .ds-ambition input[type=range] {{ width:100%; accent-color:var(--dawn2); }}
+  .ds-ticks {{ display:flex; justify-content:space-between; margin-top:4px;
+    font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); }}
+  .ds-body {{ display:grid; grid-template-columns:1.05fr 0.95fr; gap:28px; }}
+  .ds-timeline {{ position:relative; }}
+  .ds-step {{
+    position:relative; display:grid; grid-template-columns:52px 22px 1fr;
+    gap:10px; align-items:start; padding:0 0 22px 0;
+  }}
+  .ds-step:last-child {{ padding-bottom:0; }}
+  /* vertical connector line runs through the dot column (middle column) */
+  .ds-step::before {{
+    content:""; position:absolute; left:72px; top:20px; bottom:-2px; width:2px;
+    background:var(--line); transform:translateX(-50%);
+  }}
+  .ds-step:last-child::before {{ display:none; }}
+  .ds-time {{
+    font-family:ui-monospace,monospace; font-size:14px; font-weight:600;
+    color:var(--ink); text-align:right; padding-top:1px; white-space:nowrap;
+  }}
+  .ds-dot {{
+    display:block; width:15px; height:15px; border-radius:50%; margin:2px auto 0;
+    border:3px solid var(--card); box-shadow:0 0 0 1px var(--line);
+    position:relative; z-index:1;
+  }}
+  .ds-steptitle {{ font-weight:600; font-size:14.5px; margin-bottom:2px; }}
+  .ds-stepbody {{ font-size:13px; color:#4a5170; line-height:1.4; }}
+  .ds-notes {{
+    background:#f6f7fb; border:1px solid var(--line); border-radius:14px;
+    padding:18px 20px; align-self:start;
+  }}
+  .ds-notes h3 {{
+    font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 12px;
+  }}
+  .ds-notes ul {{ margin:0; padding-left:18px; }}
+  .ds-notes li {{ font-size:13px; line-height:1.5; color:#3a4160; margin-bottom:9px; }}
+  .ds-notes li:last-child {{ margin-bottom:0; }}
+  .ds-notes b {{ color:var(--ink); }}
+  @media (max-width:720px) {{ .ds-body {{ grid-template-columns:1fr; gap:22px; }} }}
+
   .cols {{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }}
   svg {{ display:block; width:100%; height:auto; overflow:visible; }}
   .axis {{ font-family:ui-monospace,monospace; font-size:10.5px; fill:var(--muted); }}
@@ -296,6 +345,23 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     <div class="stat"><div class="k">In 7–9h range</div>
       <div class="v">{round(100*a['nights_7_9']/a['recorded'])}%</div>
       <div class="n">{a['nights_7_9']} of {a['recorded']} nights</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Decision support</h2>
+    <p class="cap">A realistic wind-down plan for tonight, based on your recent
+      sleep pattern. Times ease you toward sleep — no pressure, just a gentle guide.</p>
+    <div class="ds-ambition">
+      <label for="dsSlider">Ambition toward earlier sleep</label>
+      <input type="range" id="dsSlider" min="0" max="2" step="1" value="1"
+             list="dsTicks" aria-label="Ambition toward earlier sleep">
+      <datalist id="dsTicks"><option value="0"></option><option value="1"></option><option value="2"></option></datalist>
+      <div class="ds-ticks"><span>Gentle</span><span>Moderate</span><span>Strong</span></div>
+    </div>
+    <div class="ds-body">
+      <div class="ds-timeline" id="dsTimeline"><!-- steps injected --></div>
+      <div class="ds-notes" id="dsNotes"><!-- notes injected --></div>
+    </div>
   </section>
 
   <section class="panel">
@@ -588,6 +654,106 @@ showView('last7');
       '<td>'+pill(r.composite,  r.comp_bg,  r.comp_fg)+'</td>';
     tbody.appendChild(tr);
   }});
+}})();
+
+// ---- Decision support (Targeted Asleep Time) ---------------------------- //
+(function(){{
+  const cfg = A.tat_config;
+  const PULL = [0.15, 0.30, 0.50];          // gentle / moderate / strong
+  const PULL_LABEL = ['gentle', 'moderate', 'strong'];
+  const slider = document.getElementById('dsSlider');
+  const tl = document.getElementById('dsTimeline');
+  const notesEl = document.getElementById('dsNotes');
+
+  // Last up-to-7 nights, oldest→newest, on the minutes-since-noon frame.
+  const last7 = A.series.slice(-7);
+  const begins = last7.map(d => d.bed_min);
+  const wakes  = last7.map(d => d.wake_min);
+
+  function mean(a){{ return a.reduce((s,x)=>s+x,0)/a.length; }}
+  function median(a){{
+    const s=[...a].sort((x,y)=>x-y), n=s.length, m=n>>1;
+    return n%2 ? s[m] : (s[m-1]+s[m])/2;
+  }}
+  // Least-squares slope of begin-time vs. day index (min per day).
+  function slope(a){{
+    const n=a.length; if(n<2) return 0;
+    const xm=(n-1)/2, ym=mean(a);
+    let num=0, den=0;
+    for(let i=0;i<n;i++){{ num+=(i-xm)*(a[i]-ym); den+=(i-xm)*(i-xm); }}
+    return den ? num/den : 0;
+  }}
+
+  function computeTAT(pull){{
+    // Rule 2 — habit anchor: weighted median/mean of recent begin times.
+    const habit = cfg.median_weight*median(begins) + (1-cfg.median_weight)*mean(begins);
+    // Rule 3 — follow part of the day-over-day drift.
+    const trend = cfg.trend_factor * slope(begins);
+    // Rule 4 — earlier-than-usual wake today => earlier TAT (and vice versa).
+    const wakeDev = wakes[wakes.length-1] - mean(wakes);
+    const wake = cfg.wake_factor * wakeDev;
+    let tat = habit + trend + wake;
+    // Rule 5 — tilt toward Perfect Asleep Time by the slider fraction.
+    tat = tat + pull*(cfg.pat - tat);
+    // Rule 1 + clamp — keep within [floor, ceiling], round to 30 min.
+    tat = Math.max(cfg.clamp_lo, Math.min(cfg.clamp_hi, tat));
+    return {{ tat: Math.round(tat/30)*30, habit, trend, wake, wakeDev }};
+  }}
+
+  const STEPS = [
+    {{ off:-150, title:'Step 1 — Start winding down',
+       body:'Ambient lighting, a soothing beverage, no intense work.' }},
+    {{ off:-90,  title:'Step 2 — Begin night-time routines',
+       body:'Brush teeth, wash up, and settle your space for the night.' }},
+    {{ off:-30,  title:'Step 3 — Ready for bed!',
+       body:'Lights out and settle in. Sweet dreams!' }},
+  ];
+
+  function render(){{
+    const pull = PULL[+slider.value];
+    const r = computeTAT(pull);
+
+    // Timeline (TAT itself is intentionally NOT shown).
+    tl.innerHTML = STEPS.map(s => {{
+      const t = r.tat + s.off;                        // minutes-since-noon
+      const dot = todHexFromNoon(t);
+      return '<div class="ds-step">'
+        + '<div class="ds-time">'+clockFromNoon(t)+'</div>'
+        + '<div><span class="ds-dot" style="background:'+dot+'"></span></div>'
+        + '<div><div class="ds-steptitle">'+s.title+'</div>'
+        + '<div class="ds-stepbody">'+s.body+'</div></div>'
+        + '</div>';
+    }}).join('');
+
+    // Explanatory notes (right-hand side).
+    const trendWord = Math.abs(r.trend) < 3 ? 'has been fairly steady'
+      : (r.trend > 0 ? 'has been drifting later' : 'has been drifting earlier');
+    const wakeWord = Math.abs(r.wakeDev) < 15 ? 'about your usual time'
+      : (r.wakeDev < 0 ? 'earlier than usual' : 'later than usual');
+    const wakeEffect = Math.abs(r.wakeDev) < 15 ? 'so it plays no real part today'
+      : (r.wakeDev < 0
+          ? 'so you may be tired sooner — nudging the plan a little earlier'
+          : 'so sleep may come harder — nudging the plan a little later');
+    const pat = clockFromNoon(cfg.pat);
+
+    notesEl.innerHTML =
+      '<h3>How these times were chosen</h3><ul>'
+      + '<li>The plan is anchored to your <b>typical recent bedtime</b> '
+        + '(a blend favouring the median of the last '+begins.length+' nights, '
+        + 'so one odd night doesn\u2019t skew it).</li>'
+      + '<li>Your bedtime <b>'+trendWord+'</b> lately, which is taken into account '
+        + '— chasing a sudden change rarely sticks.</li>'
+      + '<li>You woke <b>'+wakeWord+'</b> today, '+wakeEffect+'.</li>'
+      + '<li>The plan gently tilts toward an ideal of <b>'+pat+'</b>, at a '
+        + '<b>'+PULL_LABEL[+slider.value]+'</b> level of ambition '
+        + '(adjust with the slider above).</li>'
+      + '<li>Each step is spaced to ease you in: wind-down, then routines '
+        + '60 min later, then bed 30 min after that.</li>'
+      + '</ul>';
+  }}
+
+  slider.addEventListener('input', render);
+  render();
 }})();
 
 // ---- Histogram ---------------------------------------------------------- //

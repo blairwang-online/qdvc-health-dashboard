@@ -7,12 +7,37 @@ import datetime as dt
 import statistics
 from collections import defaultdict
 
-from .config import BEGIN_ARCHETYPES, END_ARCHETYPES
+from .config import (
+    BEGIN_ARCHETYPES, END_ARCHETYPES,
+    PERFECT_ASLEEP_TIME, TAT_MEDIAN_WEIGHT, TAT_TREND_FACTOR,
+    TAT_WAKE_FACTOR, TAT_CLAMP,
+)
 from .data import Night, _minutes_since_noon, _fmt_clock_from_noon
 from .archetypes import (
     begin_idx, end_idx, classify_begin, classify_end, classify_composite,
 )
 from .colors import _TOD_ANCHORS, _BEGIN_BG, _END_BG, _mix_hex, _text_on
+
+
+def _clock_to_since_noon(hhmm: str) -> int:
+    """Convert a 'HH:MM' clock time to minutes-since-noon (noon = 0), matching
+    the frame used by bed_min/wake_min so JS can compute TAT in one space."""
+    h, m = int(hhmm[:2]), int(hhmm[3:])
+    return ((h * 60 + m) - 12 * 60) % (24 * 60)
+
+
+def _tat_config() -> dict:
+    """Targeted-Asleep-Time parameters passed to the client. All times are in
+    minutes-since-noon so the JS shares one frame with the series data."""
+    lo, hi = TAT_CLAMP
+    return {
+        "pat": _clock_to_since_noon(PERFECT_ASLEEP_TIME),
+        "median_weight": TAT_MEDIAN_WEIGHT,
+        "trend_factor": TAT_TREND_FACTOR,
+        "wake_factor": TAT_WAKE_FACTOR,
+        "clamp_lo": _clock_to_since_noon(lo),
+        "clamp_hi": _clock_to_since_noon(hi),
+    }
 
 
 def _weekly_series(nights: list[Night], weeks_back: int = 8) -> list[dict]:
@@ -198,5 +223,6 @@ def analyse(nights: list[Night]) -> dict:
         "begin_labels": [lbl for _, lbl in BEGIN_ARCHETYPES],
         "end_labels": [lbl for _, lbl in END_ARCHETYPES],
         "tod_anchors": [[m, list(c)] for m, c in _TOD_ANCHORS],
+        "tat_config": _tat_config(),
         "nights_7_9": sum(1 for d in durations if 7 <= d <= 9),
     }
