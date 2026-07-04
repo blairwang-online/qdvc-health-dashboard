@@ -83,14 +83,107 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     --dawn1:#3a4a8c; --dawn2:#8a6bd1; --dawn3:#f2a65a;
     --good:#4c9a7a; --warn:#d98443; --bad:#c65f5f;
     --shadow:0 1px 2px rgba(26,34,56,.05),0 8px 24px rgba(26,34,56,.06);
+    /* semantic surfaces (themed) */
+    --inset:#eef0f7;            /* recessed controls: tab track, notes */
+    --inset-border:var(--line);
+    --body-2:#4a5170;           /* secondary body text */
+    --hero-grad:linear-gradient(135deg,#f4f2fb,#fdf6ef);
+    --hover-veil:rgba(255,255,255,.55);
+    --sidebar-bg:#ffffff;
+  }}
+  html[data-theme="dark"] {{
+    --ink:#e8ebf5; --muted:#9aa3c4; --line:#2b3350;
+    --paper:#0f1320; --card:#171c2c;
+    /* dawn accents nudged brighter so they read on dark surfaces; these are
+       UI accents only — the time-of-day palette is emitted as literal hex in
+       JS and is deliberately never routed through these variables. */
+    --dawn1:#7d8ce0; --dawn2:#a189e0; --dawn3:#f2a65a;
+    --good:#5cb894; --warn:#e0996a; --bad:#d97b7b;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    --inset:#1e2436; --inset-border:#2b3350;
+    --body-2:#b9c0dc;
+    --hero-grad:linear-gradient(135deg,#1c2036,#241c2b);
+    --hover-veil:rgba(255,255,255,.06);
+    --sidebar-bg:#131826;
   }}
   * {{ box-sizing:border-box; }}
+  html {{ scroll-behavior:smooth; }}
   body {{
     margin:0; background:var(--paper); color:var(--ink);
     font-family:{FONT_STACK};
     -webkit-font-smoothing:antialiased;
+    transition:background .35s ease, color .35s ease;
+  }}
+  /* page = main column + right sidebar */
+  .page {{
+    display:grid; grid-template-columns:minmax(0,1fr) 216px;
+    gap:0; max-width:1320px; margin:0 auto; align-items:start;
   }}
   .wrap {{ max-width:1040px; margin:0 auto; padding:40px 24px 72px; }}
+  html {{ scroll-padding-top:24px; }}
+
+  /* Sidebar */
+  .sidebar {{ position:sticky; top:0; height:100vh; padding:40px 22px 24px; }}
+  .side-inner {{
+    background:var(--sidebar-bg); border:1px solid var(--line);
+    border-radius:16px; padding:18px 16px; box-shadow:var(--shadow);
+  }}
+  .side-title {{
+    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:10.5px;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+    margin:0 6px 12px;
+  }}
+  .side-nav {{ display:flex; flex-direction:column; gap:2px; }}
+  .side-nav a {{
+    display:block; padding:8px 12px; border-radius:9px; text-decoration:none;
+    font-size:13.5px; color:var(--muted); border-left:2px solid transparent;
+    transition:background .15s, color .15s, border-color .15s;
+  }}
+  .side-nav a:hover {{ color:var(--ink); background:var(--inset); }}
+  .side-nav a.active {{
+    color:var(--dawn1); font-weight:600; background:var(--inset);
+    border-left-color:var(--dawn2);
+  }}
+  .side-theme {{
+    margin-top:16px; padding-top:14px; border-top:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; padding-left:6px;
+  }}
+  .side-theme-label {{
+    font-family:ui-monospace,monospace; font-size:10.5px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--muted);
+  }}
+  .theme-btn {{
+    position:relative; width:56px; height:28px; border-radius:999px; cursor:pointer;
+    border:1px solid var(--line); background:var(--inset); padding:0;
+    display:inline-flex; align-items:center; justify-content:space-between;
+    transition:background .3s;
+  }}
+  .theme-ico {{ font-size:13px; line-height:1; z-index:1; pointer-events:none;
+    width:28px; text-align:center; }}
+  .theme-ico-sun {{ color:var(--dawn3); }}
+  .theme-ico-moon {{ color:var(--dawn2); }}
+  .theme-knob {{
+    position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%;
+    background:var(--card); box-shadow:0 1px 3px rgba(0,0,0,.3);
+    transition:transform .3s ease;
+  }}
+  html[data-theme="dark"] .theme-knob {{ transform:translateX(28px); }}
+  .theme-btn:focus-visible {{ outline:2px solid var(--dawn2); outline-offset:2px; }}
+
+  @media (max-width:900px) {{
+    .page {{ grid-template-columns:1fr; }}
+    .sidebar {{ position:static; height:auto; padding:0 24px 8px;
+      max-width:1040px; margin:0 auto; }}
+    .side-inner {{ display:flex; align-items:center; gap:14px;
+      overflow-x:auto; }}
+    .side-title {{ display:none; }}
+    .side-nav {{ flex-direction:row; flex:1; }}
+    .side-nav a {{ border-left:0; border-bottom:2px solid transparent; white-space:nowrap; }}
+    .side-nav a.active {{ border-left:0; border-bottom-color:var(--dawn2); }}
+    .side-theme {{ margin:0; padding:0 0 0 10px; border-top:0;
+      border-left:1px solid var(--line); }}
+    .side-theme-label {{ display:none; }}
+  }}
   header {{ margin-bottom:8px; }}
   .eyebrow {{
     font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12px;
@@ -103,7 +196,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   .hero {{
     display:grid; grid-template-columns:auto 1fr; gap:36px;
     align-items:center; margin:32px 0 28px; padding:28px 32px;
-    background:linear-gradient(135deg,#f4f2fb,#fdf6ef);
+    background:var(--hero-grad);
     border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow);
   }}
   .gauge {{ position:relative; width:184px; height:184px; }}
@@ -140,7 +233,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
 
   .tabs {{
     display:inline-flex; gap:4px; margin:6px 0 22px; padding:4px;
-    background:#eef0f7; border:1px solid var(--line); border-radius:12px;
+    background:var(--inset); border:1px solid var(--inset-border); border-radius:12px;
   }}
   .tab {{
     appearance:none; border:1px solid transparent; cursor:pointer;
@@ -148,7 +241,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     letter-spacing:.02em; color:var(--muted); padding:8px 16px;
     border-radius:9px; transition:all .15s ease; white-space:nowrap;
   }}
-  .tab:hover {{ color:var(--ink); background:rgba(255,255,255,.55); }}
+  .tab:hover {{ color:var(--ink); background:var(--hover-veil); }}
   .tab.active {{
     color:var(--dawn1); font-weight:600; background:var(--card);
     border-color:var(--line);
@@ -201,9 +294,9 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     position:relative; z-index:1;
   }}
   .ds-steptitle {{ font-weight:600; font-size:14.5px; margin-bottom:2px; }}
-  .ds-stepbody {{ font-size:13px; color:#4a5170; line-height:1.4; }}
+  .ds-stepbody {{ font-size:13px; color:var(--body-2); line-height:1.4; }}
   .ds-notes {{
-    background:#f6f7fb; border:1px solid var(--line); border-radius:14px;
+    background:var(--inset); border:1px solid var(--inset-border); border-radius:14px;
     padding:18px 20px; align-self:start;
   }}
   .ds-notes h3 {{
@@ -211,7 +304,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     text-transform:uppercase; color:var(--muted); margin:0 0 12px;
   }}
   .ds-notes ul {{ margin:0; padding-left:18px; }}
-  .ds-notes li {{ font-size:13px; line-height:1.5; color:#3a4160; margin-bottom:9px; }}
+  .ds-notes li {{ font-size:13px; line-height:1.5; color:var(--body-2); margin-bottom:9px; }}
   .ds-notes li:last-child {{ margin-bottom:0; }}
   .ds-notes b {{ color:var(--ink); }}
   @media (max-width:720px) {{ .ds-body {{ grid-template-columns:1fr; gap:22px; }} }}
@@ -295,7 +388,9 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="page">
+<main class="wrap">
+  <section id="sec-overview" class="navsection">
   <header>
     <div class="eyebrow">Sleep Health · {a['date_from']} → {a['date_to']}</div>
     <h1>Your sleep, at a glance</h1>
@@ -346,8 +441,9 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
       <div class="v">{round(100*a['nights_7_9']/a['recorded'])}%</div>
       <div class="n">{a['nights_7_9']} of {a['recorded']} nights</div></div>
   </section>
+  </section>
 
-  <section class="panel">
+  <section id="sec-decision" class="panel navsection">
     <h2>Decision support</h2>
     <p class="cap">A realistic wind-down plan for tonight, based on your recent
       sleep pattern. Times ease you toward sleep — no pressure, just a gentle guide.</p>
@@ -364,7 +460,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     </div>
   </section>
 
-  <section class="panel">
+  <section id="sec-timing" class="panel navsection">
     <h2>Sleep timing &amp; trend</h2>
     <p class="cap">Duration on top; the same data as actual clock time below.
       Switch between recent nights and weekly aggregates.</p>
@@ -384,7 +480,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     </div>
   </section>
 
-  <section class="panel">
+  <section id="sec-archetypes" class="panel navsection">
     <h2>Sleep archetypes — past 7 days</h2>
     <p class="cap">Each night classified by when you fell asleep and when you woke.</p>
     <table class="archetype" id="archetypeTable">
@@ -406,6 +502,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     </div>
   </section>
 
+  <section id="sec-misc" class="navsection">
   <div class="cols">
     <section class="panel">
       <h2>How long you sleep</h2>
@@ -421,6 +518,30 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
 
   {warn_html}
   <footer>Generated from {html.escape(source)} · not medical advice.</footer>
+  </section>
+</main>
+
+  <aside class="sidebar" aria-label="Page navigation">
+    <div class="side-inner">
+      <div class="side-title">On this page</div>
+      <nav class="side-nav">
+        <a href="#sec-overview"   data-target="sec-overview">Overview</a>
+        <a href="#sec-decision"   data-target="sec-decision">Decision support</a>
+        <a href="#sec-timing"     data-target="sec-timing">Sleep timing &amp; trend</a>
+        <a href="#sec-archetypes" data-target="sec-archetypes">Sleep archetypes</a>
+        <a href="#sec-misc"       data-target="sec-misc">Miscellaneous</a>
+      </nav>
+      <div class="side-theme">
+        <span class="side-theme-label">Theme</span>
+        <button id="themeToggle" class="theme-btn" type="button"
+                aria-label="Toggle light and dark mode">
+          <span class="theme-ico theme-ico-sun">☀</span>
+          <span class="theme-ico theme-ico-moon">☾</span>
+          <span class="theme-knob"></span>
+        </button>
+      </div>
+    </div>
+  </aside>
 </div>
 
 <script>
@@ -808,6 +929,61 @@ showView('last7');
   }});
   svg.appendChild(el('line',{{x1:mL,y1:mT+ih,x2:W-mR,y2:mT+ih,stroke:css('--line')}}));
   document.getElementById('weekday').appendChild(svg);
+}})();
+
+// ---- Theme (light/dark) ------------------------------------------------- //
+(function(){{
+  const root = document.documentElement;
+  // Default by time of day: dark from 9PM to 6AM, light otherwise.
+  const hr = new Date().getHours();
+  const auto = (hr >= 21 || hr < 6) ? 'dark' : 'light';
+  root.setAttribute('data-theme', auto);
+  const btn = document.getElementById('themeToggle');
+  function setPressed(){{
+    btn.setAttribute('aria-pressed', root.getAttribute('data-theme')==='dark');
+  }}
+  setPressed();
+  btn.addEventListener('click', () => {{
+    root.setAttribute('data-theme',
+      root.getAttribute('data-theme')==='dark' ? 'light' : 'dark');
+    setPressed();
+  }});
+}})();
+
+// ---- Sidebar scroll-spy ------------------------------------------------- //
+(function(){{
+  const links = Array.from(document.querySelectorAll('.side-nav a'));
+  const byId = Object.fromEntries(links.map(a => [a.dataset.target, a]));
+  const sections = links.map(a => document.getElementById(a.dataset.target))
+                        .filter(Boolean);
+  if(!sections.length) return;
+
+  function setActive(id){{
+    links.forEach(a => a.classList.toggle('active', a.dataset.target === id));
+  }}
+
+  // Track how much of each section is visible; highlight the most-visible one.
+  const ratios = new Map();
+  const obs = new IntersectionObserver((entries) => {{
+    entries.forEach(e => ratios.set(e.target.id, e.intersectionRatio));
+    let best = null, bestR = -1;
+    sections.forEach(s => {{
+      const r = ratios.get(s.id) || 0;
+      if(r > bestR) {{ bestR = r; best = s.id; }}
+    }});
+    // If nothing is meaningfully visible (between sections), keep the topmost
+    // section that has scrolled past the top of the viewport.
+    if(bestR <= 0) {{
+      for(const s of sections) {{
+        if(s.getBoundingClientRect().top <= window.innerHeight * 0.3) best = s.id;
+      }}
+    }}
+    if(best) setActive(best);
+  }}, {{ threshold:[0,0.1,0.25,0.5,0.75,1], rootMargin:'-10% 0px -40% 0px' }});
+  sections.forEach(s => obs.observe(s));
+
+  // Smooth-scroll + immediate highlight on click.
+  links.forEach(a => a.addEventListener('click', () => setActive(a.dataset.target)));
 }})();
 </script>
 </body>
