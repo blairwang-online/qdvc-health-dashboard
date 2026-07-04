@@ -9,7 +9,7 @@ from collections import defaultdict
 
 from .config import (
     BEGIN_ARCHETYPES, END_ARCHETYPES,
-    PERFECT_ASLEEP_TIME, TAT_MEDIAN_WEIGHT, TAT_TREND_FACTOR,
+    PERFECT_ASLEEP_TIME, TAT_TREND_FACTOR,
     TAT_WAKE_FACTOR, TAT_CLAMP,
 )
 from .data import Night, _minutes_since_noon, _fmt_clock_from_noon
@@ -32,7 +32,6 @@ def _tat_config() -> dict:
     lo, hi = TAT_CLAMP
     return {
         "pat": _clock_to_since_noon(PERFECT_ASLEEP_TIME),
-        "median_weight": TAT_MEDIAN_WEIGHT,
         "trend_factor": TAT_TREND_FACTOR,
         "wake_factor": TAT_WAKE_FACTOR,
         "clamp_lo": _clock_to_since_noon(lo),

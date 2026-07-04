@@ -169,7 +169,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   }}
 
   /* Decision support */
-  .ds-ambition {{ margin:4px 0 22px; max-width:420px; }}
+  .ds-ambition {{ margin:4px auto 24px; max-width:420px; text-align:center; }}
   .ds-ambition label {{
     display:block; font-family:ui-monospace,monospace; font-size:11px;
     letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
@@ -671,9 +671,12 @@ showView('last7');
   const wakes  = last7.map(d => d.wake_min);
 
   function mean(a){{ return a.reduce((s,x)=>s+x,0)/a.length; }}
-  function median(a){{
-    const s=[...a].sort((x,y)=>x-y), n=s.length, m=n>>1;
-    return n%2 ? s[m] : (s[m-1]+s[m])/2;
+  // Recency-weighted average: newest night weighted most (a is oldest→newest,
+  // so index i gets weight i+1: 1,2,3,…,n).
+  function recencyWeighted(a){{
+    let num=0, den=0;
+    for(let i=0;i<a.length;i++){{ const w=i+1; num+=w*a[i]; den+=w; }}
+    return den ? num/den : 0;
   }}
   // Least-squares slope of begin-time vs. day index (min per day).
   function slope(a){{
@@ -685,8 +688,9 @@ showView('last7');
   }}
 
   function computeTAT(pull){{
-    // Rule 2 — habit anchor: weighted median/mean of recent begin times.
-    const habit = cfg.median_weight*median(begins) + (1-cfg.median_weight)*mean(begins);
+    // Rule 2 — habit anchor: recency-weighted average of recent begin times
+    // (last night counts most, tapering back over the window).
+    const habit = recencyWeighted(begins);
     // Rule 3 — follow part of the day-over-day drift.
     const trend = cfg.trend_factor * slope(begins);
     // Rule 4 — earlier-than-usual wake today => earlier TAT (and vice versa).
@@ -701,11 +705,11 @@ showView('last7');
   }}
 
   const STEPS = [
-    {{ off:-150, title:'Step 1 — Start winding down',
+    {{ off:-90, title:'Step 1 — Start winding down',
        body:'Ambient lighting, a soothing beverage, no intense work.' }},
-    {{ off:-90,  title:'Step 2 — Begin night-time routines',
+    {{ off:-60, title:'Step 2 — Begin night-time routines',
        body:'Brush teeth, wash up, and settle your space for the night.' }},
-    {{ off:-30,  title:'Step 3 — Ready for bed!',
+    {{ off:-30, title:'Step 3 — Ready for bed!',
        body:'Lights out and settle in. Sweet dreams!' }},
   ];
 
@@ -739,8 +743,8 @@ showView('last7');
     notesEl.innerHTML =
       '<h3>How these times were chosen</h3><ul>'
       + '<li>The plan is anchored to your <b>typical recent bedtime</b> '
-        + '(a blend favouring the median of the last '+begins.length+' nights, '
-        + 'so one odd night doesn\u2019t skew it).</li>'
+        + '(a recency-weighted average of the last '+begins.length+' nights, '
+        + 'so last night counts most and older nights taper off).</li>'
       + '<li>Your bedtime <b>'+trendWord+'</b> lately, which is taken into account '
         + '— chasing a sudden change rarely sticks.</li>'
       + '<li>You woke <b>'+wakeWord+'</b> today, '+wakeEffect+'.</li>'
@@ -748,7 +752,7 @@ showView('last7');
         + '<b>'+PULL_LABEL[+slider.value]+'</b> level of ambition '
         + '(adjust with the slider above).</li>'
       + '<li>Each step is spaced to ease you in: wind-down, then routines '
-        + '60 min later, then bed 30 min after that.</li>'
+        + '30 min later, then bed 30 min after that.</li>'
       + '</ul>';
   }}
 
