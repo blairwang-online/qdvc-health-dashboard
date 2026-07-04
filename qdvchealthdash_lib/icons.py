@@ -23,23 +23,47 @@ _ICON_INNER = {
   <path d="M26 50 l-6 -5 M26 50 l-6 5" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7"/>
 """,
     "Classic Warrior": """
-  <path d="M50 18 L74 26 V50 C74 64 63 76 50 82 C37 76 26 64 26 50 V26 Z" fill="currentColor" opacity="0.30"/>
-  <path d="M50 18 L74 26 V50 C74 64 63 76 50 82 C37 76 26 64 26 50 V26 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.85"/>
-  <line x1="50" y1="28" x2="50" y2="70" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
-  <line x1="40" y1="40" x2="60" y2="40" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+  <path d="M56 22 L78 29 V50 C78 63 68 74 56 79 C44 74 34 63 34 50 V29 Z" fill="currentColor" opacity="0.28"/>
+  <path d="M56 22 L78 29 V50 C78 63 68 74 56 79 C44 74 34 63 34 50 V29 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.8"/>
+  <g opacity="0.9">
+    <path d="M24 78 L30 72 L60 30 L64 26 L66 34 L34 76 Z" fill="currentColor"/>
+    <line x1="26" y1="66" x2="40" y2="80" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+    <line x1="24" y1="78" x2="18" y2="84" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="16" cy="86" r="3.5" fill="currentColor"/>
+  </g>
 """,
     "Besieged Defender": """
-  <rect x="34" y="40" width="32" height="42" fill="currentColor" opacity="0.30"/>
-  <rect x="34" y="40" width="32" height="42" fill="none" stroke="currentColor" stroke-width="3" opacity="0.85"/>
-  <path d="M30 40 v-8 h6 v8 M47 40 v-8 h6 v8 M64 40 v-8 h6 v8" fill="currentColor" opacity="0.85"/>
-  <rect x="30" y="34" width="40" height="6" fill="currentColor" opacity="0.85"/>
-  <path d="M44 82 v-16 a6 6 0 0 1 12 0 v16 Z" fill="currentColor" opacity="0.6"/>
-  <rect x="48" y="48" width="4" height="10" fill="currentColor" opacity="0.7"/>
+  <g opacity="0.85">
+    <rect x="24" y="52" width="52" height="30" fill="currentColor" opacity="0.30"/>
+    <rect x="24" y="52" width="52" height="30" fill="none" stroke="currentColor" stroke-width="3"/>
+    <rect x="20" y="42" width="16" height="40" fill="currentColor" opacity="0.30"/>
+    <rect x="20" y="42" width="16" height="40" fill="none" stroke="currentColor" stroke-width="3"/>
+    <rect x="64" y="42" width="16" height="40" fill="currentColor" opacity="0.30"/>
+    <rect x="64" y="42" width="16" height="40" fill="none" stroke="currentColor" stroke-width="3"/>
+    <path d="M20 42 h4 v-5 h4 v5 h4 v-5 h4 v5" fill="currentColor"/>
+    <path d="M64 42 h4 v-5 h4 v5 h4 v-5 h4 v5" fill="currentColor"/>
+    <path d="M30 52 v-5 h5 v5 M43 52 v-6 h6 v6 M57 52 v-5 h5 v5" fill="currentColor"/>
+  </g>
+  <path d="M44 82 v-14 a6 6 0 0 1 12 0 v14 Z" fill="currentColor" opacity="0.65"/>
 """,
     "Stockholm Winter": """
-  <path d="M72 26 l2.2 5.4 5.8 .5 -4.4 3.8 1.3 5.7 -4.9 -3.1 -4.9 3.1 1.3 -5.7 -4.4 -3.8 5.8 -.5 Z" fill="currentColor" opacity="0.55"/>
-  <path d="M28 74 V58 c0 -6 3 -11 8 -14 l-3 -9 c-1 -3 1 -5 3 -3 l6 7 c3 -1 6 -1 9 0 l10 -2
-           c3 -1 5 2 3 4 l-6 6 c2 4 3 8 3 13 v14 h-7 V62 h-2 v12 h-7 V62 c-3 1 -6 1 -9 0 v12 Z" fill="currentColor" opacity="0.85"/>
+  <g stroke="currentColor" stroke-linecap="round" fill="none">
+    <g opacity="0.9" stroke-width="3" transform="translate(46,46)">
+      <g id="fl"><line x1="0" y1="0" x2="0" y2="-22"/><line x1="0" y1="-14" x2="-6" y2="-20"/><line x1="0" y1="-14" x2="6" y2="-20"/></g>
+      <use href="#fl" transform="rotate(60)"/><use href="#fl" transform="rotate(120)"/>
+      <use href="#fl" transform="rotate(180)"/><use href="#fl" transform="rotate(240)"/><use href="#fl" transform="rotate(300)"/>
+    </g>
+    <g opacity="0.6" stroke-width="2.2" transform="translate(76,26)">
+      <g id="fs"><line x1="0" y1="0" x2="0" y2="-11"/><line x1="0" y1="-7" x2="-4" y2="-11"/><line x1="0" y1="-7" x2="4" y2="-11"/></g>
+      <use href="#fs" transform="rotate(60)"/><use href="#fs" transform="rotate(120)"/>
+      <use href="#fs" transform="rotate(180)"/><use href="#fs" transform="rotate(240)"/><use href="#fs" transform="rotate(300)"/>
+    </g>
+    <g opacity="0.5" stroke-width="2" transform="translate(24,74)">
+      <g id="ft"><line x1="0" y1="0" x2="0" y2="-9"/><line x1="0" y1="-6" x2="-3" y2="-9"/><line x1="0" y1="-6" x2="3" y2="-9"/></g>
+      <use href="#ft" transform="rotate(60)"/><use href="#ft" transform="rotate(120)"/>
+      <use href="#ft" transform="rotate(180)"/><use href="#ft" transform="rotate(240)"/><use href="#ft" transform="rotate(300)"/>
+    </g>
+  </g>
 """,
     "Classic Commuter": """
   <rect x="30" y="24" width="40" height="46" rx="10" fill="currentColor" opacity="0.30"/>
@@ -51,54 +75,66 @@ _ICON_INNER = {
   <line x1="62" y1="70" x2="67" y2="80" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
 """,
     "Madrid Summer": """
-  <g stroke="currentColor" stroke-linecap="round" fill="none" opacity="0.9" stroke-width="3.2">
-    <line x1="50" y1="50" x2="50" y2="30"/><line x1="50" y1="50" x2="64" y2="36"/>
-    <line x1="50" y1="50" x2="70" y2="50"/><line x1="50" y1="50" x2="64" y2="64"/>
-    <line x1="50" y1="50" x2="50" y2="70"/><line x1="50" y1="50" x2="36" y2="64"/>
-    <line x1="50" y1="50" x2="30" y2="50"/><line x1="50" y1="50" x2="36" y2="36"/>
+  <path d="M18 82 L44 56 L52 64 Z" fill="currentColor" opacity="0.5"/>
+  <path d="M18 82 L44 56 L52 64 Z" fill="none" stroke="currentColor" stroke-width="2.5" opacity="0.85"/>
+  <line x1="41" y1="53" x2="55" y2="67" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <g stroke="currentColor" fill="none" stroke-linecap="round" opacity="0.85">
+    <path d="M52 60 q10 -14 24 -14" stroke-width="2.6"/>
+    <path d="M50 56 q6 -18 14 -26" stroke-width="2.6"/>
+    <path d="M54 62 q16 -6 26 2" stroke-width="2.6"/>
   </g>
-  <circle cx="50" cy="50" r="3" fill="currentColor" opacity="0.9"/>
-  <g stroke="currentColor" stroke-linecap="round" fill="none" opacity="0.55" stroke-width="2.4">
-    <line x1="26" y1="28" x2="26" y2="18"/><line x1="26" y1="28" x2="33" y2="21"/>
-    <line x1="26" y1="28" x2="19" y2="21"/><line x1="26" y1="28" x2="33" y2="35"/>
-    <line x1="26" y1="28" x2="19" y2="35"/>
-  </g>
-  <g stroke="currentColor" stroke-linecap="round" fill="none" opacity="0.5" stroke-width="2.2">
-    <line x1="76" y1="72" x2="76" y2="64"/><line x1="76" y1="72" x2="82" y2="66"/>
-    <line x1="76" y1="72" x2="70" y2="66"/><line x1="76" y1="72" x2="82" y2="78"/>
-    <line x1="76" y1="72" x2="70" y2="78"/>
+  <g fill="currentColor" opacity="0.8">
+    <rect x="72" y="42" width="5" height="5" rx="1" transform="rotate(20 74 44)"/>
+    <rect x="62" y="26" width="5" height="5" rx="1" transform="rotate(-15 64 28)"/>
+    <rect x="80" y="50" width="4.5" height="4.5" rx="1" transform="rotate(35 82 52)"/>
+    <circle cx="58" cy="34" r="2.4"/><circle cx="78" cy="34" r="2.4"/><circle cx="68" cy="48" r="2.2"/>
   </g>
 """,
     "Dreaming Kierkegaard": """
-  <path d="M20 64 C30 58 44 58 50 62 C56 58 70 58 80 64 L80 40 C70 34 56 34 50 38
-           C44 34 30 34 20 40 Z" fill="currentColor" opacity="0.30"/>
-  <path d="M20 64 C30 58 44 58 50 62 C56 58 70 58 80 64 L80 40 C70 34 56 34 50 38
-           C44 34 30 34 20 40 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.85"/>
-  <line x1="50" y1="38" x2="50" y2="62" stroke="currentColor" stroke-width="2.5" opacity="0.7"/>
-  <text x="60" y="34" font-family="monospace" font-size="14" font-weight="700" fill="currentColor" opacity="0.85">z</text>
-  <text x="70" y="26" font-family="monospace" font-size="11" font-weight="700" fill="currentColor" opacity="0.7">z</text>
-  <text x="78" y="20" font-family="monospace" font-size="8"  font-weight="700" fill="currentColor" opacity="0.55">z</text>
+  <g opacity="0.85">
+    <path d="M18 68 C28 62 42 62 48 66 L48 72 C42 68 28 68 18 74 Z" fill="currentColor" opacity="0.5"/>
+    <path d="M52 66 C58 62 72 62 82 68 L82 74 C72 68 58 68 52 72 Z" fill="currentColor" opacity="0.5"/>
+    <path d="M18 68 C28 60 42 60 48 65 L48 40 C42 35 28 35 18 43 Z" fill="currentColor" opacity="0.30"/>
+    <path d="M52 65 C58 60 72 60 82 68 L82 43 C72 35 58 35 52 40 Z" fill="currentColor" opacity="0.30"/>
+    <path d="M18 68 C28 60 42 60 48 65 C52 60 66 60 82 68 L82 43 C66 35 52 35 48 40 C42 35 28 35 18 43 Z"
+          fill="none" stroke="currentColor" stroke-width="3"/>
+    <line x1="48" y1="40" x2="48" y2="65" stroke="currentColor" stroke-width="2.5" opacity="0.7"/>
+  </g>
+  <text x="58" y="34" font-family="monospace" font-size="20" font-weight="700" fill="currentColor" opacity="0.9">z</text>
+  <text x="71" y="24" font-family="monospace" font-size="15" font-weight="700" fill="currentColor" opacity="0.72">z</text>
+  <text x="81" y="16" font-family="monospace" font-size="11" font-weight="700" fill="currentColor" opacity="0.55">z</text>
 """,
     "Classic Philosopher": """
-  <path d="M50 20 C36 20 27 30 27 42 C27 51 33 56 37 62 C39 65 40 68 40 71 L60 71
-           C60 68 61 65 63 62 C67 56 73 51 73 42 C73 30 64 20 50 20 Z" fill="currentColor" opacity="0.30"/>
-  <path d="M50 20 C36 20 27 30 27 42 C27 51 33 56 37 62 C39 65 40 68 40 71 L60 71
-           C60 68 61 65 63 62 C67 56 73 51 73 42 C73 30 64 20 50 20 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.85"/>
-  <path d="M44 40 l6 8 6 -8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
-  <rect x="42" y="74" width="16" height="4" rx="2" fill="currentColor" opacity="0.85"/>
-  <rect x="44" y="80" width="12" height="4" rx="2" fill="currentColor" opacity="0.7"/>
+  <g stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.7">
+    <line x1="50" y1="10" x2="50" y2="18"/>
+    <line x1="22" y1="20" x2="27" y2="26"/>
+    <line x1="78" y1="20" x2="73" y2="26"/>
+    <line x1="14" y1="44" x2="22" y2="44"/>
+    <line x1="86" y1="44" x2="78" y2="44"/>
+  </g>
+  <path d="M50 18 C37 18 28 27 28 39 C28 48 34 53 38 59 C40 62 41 65 41 68 L59 68
+           C59 65 60 62 62 59 C66 53 72 48 72 39 C72 27 63 18 50 18 Z" fill="currentColor" opacity="0.30"/>
+  <path d="M50 18 C37 18 28 27 28 39 C28 48 34 53 38 59 C40 62 41 65 41 68 L59 68
+           C59 65 60 62 62 59 C66 53 72 48 72 39 C72 27 63 18 50 18 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.85"/>
+  <path d="M44 38 l6 8 6 -8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <rect x="42" y="71" width="16" height="4" rx="2" fill="currentColor" opacity="0.85"/>
+  <rect x="44" y="77" width="12" height="4" rx="2" fill="currentColor" opacity="0.7"/>
 """,
     "Nocturnal Voltaire": """
-  <ellipse cx="50" cy="56" rx="24" ry="26" fill="currentColor" opacity="0.30"/>
-  <ellipse cx="50" cy="56" rx="24" ry="26" fill="none" stroke="currentColor" stroke-width="3" opacity="0.85"/>
-  <path d="M32 34 l6 12 -12 -4 Z" fill="currentColor" opacity="0.85"/>
-  <path d="M68 34 l-6 12 12 -4 Z" fill="currentColor" opacity="0.85"/>
-  <circle cx="41" cy="50" r="8" fill="currentColor" opacity="0.6"/>
-  <circle cx="59" cy="50" r="8" fill="currentColor" opacity="0.6"/>
-  <circle cx="41" cy="50" r="3.5" fill="currentColor" opacity="0.95"/>
-  <circle cx="59" cy="50" r="3.5" fill="currentColor" opacity="0.95"/>
-  <path d="M50 56 l-4 6 8 0 Z" fill="currentColor" opacity="0.9"/>
-  <path d="M44 82 v4 M50 82 v5 M56 82 v4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <ellipse cx="50" cy="58" rx="26" ry="24" fill="currentColor" opacity="0.30"/>
+  <path d="M26 46 a10 9 0 0 1 20 0 a10 9 0 0 1 8 0 a10 9 0 0 1 20 0 Z" fill="currentColor" opacity="0.30"/>
+  <path d="M24 56 C24 34 40 26 50 26 C60 26 76 34 76 56" fill="none" stroke="currentColor" stroke-width="3" opacity="0.6"/>
+  <circle cx="40" cy="50" r="10" fill="currentColor" opacity="0.16"/>
+  <circle cx="60" cy="50" r="10" fill="currentColor" opacity="0.16"/>
+  <circle cx="40" cy="51" r="4.5" fill="currentColor" opacity="0.9"/>
+  <circle cx="60" cy="51" r="4.5" fill="currentColor" opacity="0.9"/>
+  <circle cx="38.5" cy="49" r="1.4" fill="currentColor" opacity="0.25"/>
+  <circle cx="58.5" cy="49" r="1.4" fill="currentColor" opacity="0.25"/>
+  <path d="M32 42 q8 -5 16 -1 M68 42 q-8 -5 -16 -1" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity="0.5"/>
+  <path d="M50 56 l-3 4 6 0 Z" fill="currentColor" opacity="0.85"/>
+  <path d="M28 56 q-4 12 4 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  <path d="M72 56 q4 12 -4 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  <path d="M44 82 v3 M50 82 v4 M56 82 v3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
 """,
 }
 

@@ -312,13 +312,13 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   /* Persona icons (currentColor silhouettes; inherit the element's text colour) */
   .persona-icon {{ display:block; color:inherit; }}
   td.ref-cell {{ position:relative; }}
-  .ref-icon {{ position:absolute; top:10px; right:10px; width:34px; height:34px; opacity:.9; }}
+  .ref-icon {{ position:absolute; top:9px; right:9px; width:46px; height:46px; opacity:.9; }}
   td.ref-cell .ref-name, td.ref-cell .ref-hours, td.ref-cell .ref-blurb {{
-    padding-right:40px;  /* keep text clear of the corner icon */
+    padding-right:52px;  /* keep text clear of the corner icon */
   }}
-  .persona-head-main {{ display:flex; align-items:center; gap:14px; }}
+  .persona-head-main {{ display:flex; align-items:center; gap:16px; }}
   .persona-icon-slot {{ flex:0 0 auto; }}
-  .modal-icon {{ width:52px; height:52px; color:inherit; }}
+  .modal-icon {{ width:68px; height:68px; color:inherit; }}
 
   @media (max-width:900px) {{
     .page {{ grid-template-columns:1fr; }}
