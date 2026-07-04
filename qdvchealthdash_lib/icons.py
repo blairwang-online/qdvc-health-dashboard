@@ -121,20 +121,20 @@ _ICON_INNER = {
   <rect x="44" y="77" width="12" height="4" rx="2" fill="currentColor" opacity="0.7"/>
 """,
     "Nocturnal Voltaire": """
-  <ellipse cx="50" cy="58" rx="26" ry="24" fill="currentColor" opacity="0.30"/>
-  <path d="M26 46 a10 9 0 0 1 20 0 a10 9 0 0 1 8 0 a10 9 0 0 1 20 0 Z" fill="currentColor" opacity="0.30"/>
-  <path d="M24 56 C24 34 40 26 50 26 C60 26 76 34 76 56" fill="none" stroke="currentColor" stroke-width="3" opacity="0.6"/>
-  <circle cx="40" cy="50" r="10" fill="currentColor" opacity="0.16"/>
-  <circle cx="60" cy="50" r="10" fill="currentColor" opacity="0.16"/>
-  <circle cx="40" cy="51" r="4.5" fill="currentColor" opacity="0.9"/>
-  <circle cx="60" cy="51" r="4.5" fill="currentColor" opacity="0.9"/>
-  <circle cx="38.5" cy="49" r="1.4" fill="currentColor" opacity="0.25"/>
-  <circle cx="58.5" cy="49" r="1.4" fill="currentColor" opacity="0.25"/>
-  <path d="M32 42 q8 -5 16 -1 M68 42 q-8 -5 -16 -1" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity="0.5"/>
-  <path d="M50 56 l-3 4 6 0 Z" fill="currentColor" opacity="0.85"/>
-  <path d="M28 56 q-4 12 4 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
-  <path d="M72 56 q4 12 -4 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
-  <path d="M44 82 v3 M50 82 v4 M56 82 v3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M74 12 A16 16 0 1 0 90 34 A12 12 0 1 1 74 12 Z" fill="currentColor" opacity="0.55" fill-rule="evenodd"/>
+  <path d="M34 34 L38 24 L43 33 C46 31 54 31 57 33 L62 24 L66 34
+           C71 39 73 47 73 55 C73 70 63 82 50 82 C37 82 27 70 27 55
+           C27 47 29 39 34 34 Z"
+        fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round" opacity="0.92"/>
+  <path d="M33 49 C40 43 60 43 67 49" fill="none" stroke="currentColor" stroke-width="2.4" opacity="0.55"/>
+  <path d="M36 52 C26 56 20 66 20 74 C26 70 31 68 37 68"
+        fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <path d="M64 52 C74 56 80 66 80 74 C74 70 69 68 63 68"
+        fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <path d="M50 55 v21" stroke="currentColor" stroke-width="1.6" opacity="0.3"/>
+  <line x1="24" y1="84" x2="76" y2="84" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  <path d="M44 82 v3 M44 85 l-3 2 M44 85 l3 2 M56 82 v3 M56 85 l-3 2 M56 85 l3 2"
+        fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity="0.7"/>
 """,
 }
 

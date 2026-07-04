@@ -655,7 +655,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   </section>
 
   <section id="sec-archetypes" class="panel navsection">
-    <h2>Archetypes and personas — past 7 days</h2>
+    <h2>Archetypes &amp; personas — past 7 days</h2>
     <p class="cap">Each night classified by when you fell asleep and when you woke.</p>
     <table class="archetype" id="archetypeTable">
       <thead>
@@ -702,7 +702,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
         <a href="#sec-overview"   data-target="sec-overview">Overview</a>
         <a href="#sec-decision"   data-target="sec-decision">Decision support</a>
         <a href="#sec-timing"     data-target="sec-timing">Sleep timing &amp; trend</a>
-        <a href="#sec-archetypes" data-target="sec-archetypes">Archetypes and personas</a>
+        <a href="#sec-archetypes" data-target="sec-archetypes">Archetypes &amp; personas</a>
         <a href="#sec-misc"       data-target="sec-misc">Miscellaneous</a>
         <button id="paletteOpen" class="side-nav-btn" type="button">Colour Palette</button>
       </nav>
