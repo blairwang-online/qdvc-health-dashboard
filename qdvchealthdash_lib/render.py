@@ -13,6 +13,7 @@ from .config import (
 )
 from .colors import _BEGIN_BG, _END_BG, _mix_hex, _pill_style, _text_on
 from .data import _fmt_hm
+from .icons import persona_icon_svg
 
 
 def _reference_table_html() -> str:
@@ -36,9 +37,11 @@ def _reference_table_html() -> str:
             name = html.escape(COMPOSITE_ARCHETYPES[bi][ei])
             blurb = html.escape(COMPOSITE_BLURBS[bi][ei])
             hours = html.escape(_sleep_hours_range(bi, ei))
+            icon = persona_icon_svg(COMPOSITE_ARCHETYPES[bi][ei], cls="persona-icon ref-icon")
             cells += (
                 f'<td class="ref-cell persona-open" role="button" tabindex="0" '
                 f'data-bi="{bi}" data-ei="{ei}" style="{_pill_style(bg)}">'
+                f'{icon}'
                 f'<span class="ref-name">{name}</span>'
                 f'<span class="ref-hours">{hours}</span>'
                 f'<span class="ref-blurb">{blurb}</span></td>'
@@ -75,6 +78,8 @@ def _persona_cards() -> list[list[dict]]:
                 "bg": bg, "fg": _text_on(bg),
                 "detail": COMPOSITE_DETAILS[bi][ei],
                 "health": COMPOSITE_HEALTH[bi][ei],
+                "icon": persona_icon_svg(COMPOSITE_ARCHETYPES[bi][ei],
+                                         cls="persona-icon modal-icon"),
             })
         cards.append(row)
     return cards
@@ -303,6 +308,17 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   .persona-section p {{ margin:0; font-size:14.5px; line-height:1.55; color:var(--ink); }}
   .persona-disclaimer {{ margin-top:10px !important; font-size:12px !important;
     color:var(--muted) !important; font-style:italic; }}
+
+  /* Persona icons (currentColor silhouettes; inherit the element's text colour) */
+  .persona-icon {{ display:block; color:inherit; }}
+  td.ref-cell {{ position:relative; }}
+  .ref-icon {{ position:absolute; top:10px; right:10px; width:34px; height:34px; opacity:.9; }}
+  td.ref-cell .ref-name, td.ref-cell .ref-hours, td.ref-cell .ref-blurb {{
+    padding-right:40px;  /* keep text clear of the corner icon */
+  }}
+  .persona-head-main {{ display:flex; align-items:center; gap:14px; }}
+  .persona-icon-slot {{ flex:0 0 auto; }}
+  .modal-icon {{ width:52px; height:52px; color:inherit; }}
 
   @media (max-width:900px) {{
     .page {{ grid-template-columns:1fr; }}
@@ -724,9 +740,12 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
 <div id="personaModal" class="modal-overlay" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="personaTitle">
     <div class="modal-head persona-head" id="personaHead">
-      <div>
-        <div class="persona-eyebrow">Sleep persona</div>
-        <h2 id="personaTitle">—</h2>
+      <div class="persona-head-main">
+        <span class="persona-icon-slot" id="personaIcon"></span>
+        <div>
+          <div class="persona-eyebrow">Sleep persona</div>
+          <h2 id="personaTitle">—</h2>
+        </div>
       </div>
       <button id="personaClose" class="modal-close" type="button"
               aria-label="Close">✕</button>
@@ -1292,6 +1311,7 @@ showView('last7');
     const c = (PERSONA_CARDS[bi]||[])[ei];
     if(!c) return;
     titleEl.textContent = c.name;
+    document.getElementById('personaIcon').innerHTML = c.icon || '';
     // Tint the header with the persona's blended colour.
     head.style.background = c.bg;
     head.style.color = c.fg;
