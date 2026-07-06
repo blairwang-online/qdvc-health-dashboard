@@ -1037,12 +1037,15 @@ showView('last7');
 // Punctuality target colours are derived from the time-of-day palette so each
 // line's hue matches the clock time it represents. Because every target clusters
 // near one bedtime, the raw palette samples would be near-identical blues, so we
-// apply a UNIFORM saturation/luminosity adjustment (same shift for every line):
-// the hue is preserved, saturation is boosted and lightness pinned to a mid
-// value that reads on both the light and dark themes. See MAINTENANCE.md §5.
+// keep each sample's HUE but override saturation/lightness. Saturation gets a
+// uniform boost; lightness is spread evenly across the ladder (earliest/hardest
+// target darkest, latest/easiest lightest) so adjacent same-hue lines separate.
+// The whole lightness range stays mid-toned so every line reads on both the
+// light and dark themes. See MAINTENANCE.md §5.
 const PUNCT_SAT_MIN = 0.55;   // floor on saturation after the uniform boost
 const PUNCT_SAT_GAIN = 1.6;   // uniform saturation multiplier
-const PUNCT_LIGHT = 0.52;     // uniform target lightness (visible on light+dark)
+const PUNCT_LIGHT_LO = 0.40;  // lightness of the earliest/hardest target
+const PUNCT_LIGHT_HI = 0.66;  // lightness of the latest/easiest target
 function _rgbToHsl(r,g,b){{
   r/=255; g/=255; b/=255;
   const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
@@ -1064,23 +1067,31 @@ function _hslToHex(h,s,l){{
   const to=v=>Math.round((v+m)*255).toString(16).padStart(2,'0');
   return '#'+to(r)+to(g)+to(b);
 }}
-// Take a time-of-day colour (as minutes-since-noon), keep its hue, and apply the
-// uniform saturation/luminosity adjustment shared by every punctuality line.
-function punctColor(minsSinceNoon){{
+// Take a time-of-day colour (as minutes-since-noon), keep its hue, boost
+// saturation, and pick a lightness by the line's position in the ladder: idx of
+// total (both 0-based count) maps linearly across PUNCT_LIGHT_LO..HI. A single
+// line (total<=1) sits at the midpoint.
+function punctColor(minsSinceNoon, idx, total){{
   const [r,g,b]=todRgb(((Math.round(minsSinceNoon)+720)%1440+1440)%1440);
   const [h,s]=_rgbToHsl(r,g,b);
   const s2=Math.min(1, Math.max(PUNCT_SAT_MIN, s*PUNCT_SAT_GAIN));
-  return _hslToHex(h, s2, PUNCT_LIGHT);
+  const f = total>1 ? idx/(total-1) : 0.5;
+  const l = PUNCT_LIGHT_LO + (PUNCT_LIGHT_HI - PUNCT_LIGHT_LO) * f;
+  return _hslToHex(h, s2, l);
 }}
 // Smooth an SVG polyline through the given points with a Catmull-Rom spline
-// (converted to cubic Béziers), for gently curved series lines.
-function smoothPath(pts){{
+// (converted to cubic Béziers), for gently curved series lines. Control-point y
+// values are clamped to [yMin,yMax] (the plot band) so the curve never bows past
+// the 0%/100% edges between data points — the anchors are already in range.
+function smoothPath(pts, yMin, yMax){{
   if(pts.length<2) return pts.length?('M'+pts[0][0]+' '+pts[0][1]):'';
+  const clampY = yMin==null ? (v=>v)
+    : (v => Math.max(Math.min(yMin,yMax), Math.min(Math.max(yMin,yMax), v)));
   let d='M'+pts[0][0]+' '+pts[0][1];
   for(let i=0;i<pts.length-1;i++){{
     const p0=pts[i>0?i-1:i], p1=pts[i], p2=pts[i+1], p3=pts[i+2<pts.length?i+2:i+1];
-    const c1x=p1[0]+(p2[0]-p0[0])/6, c1y=p1[1]+(p2[1]-p0[1])/6;
-    const c2x=p2[0]-(p3[0]-p1[0])/6, c2y=p2[1]-(p3[1]-p1[1])/6;
+    const c1x=p1[0]+(p2[0]-p0[0])/6, c1y=clampY(p1[1]+(p2[1]-p0[1])/6);
+    const c2x=p2[0]-(p3[0]-p1[0])/6, c2y=clampY(p2[1]-(p3[1]-p1[1])/6);
     d+='C'+c1x+' '+c1y+' '+c2x+' '+c2y+' '+p2[0]+' '+p2[1];
   }}
   return d;
@@ -1121,10 +1132,10 @@ function renderPunctuality(pview){{
     t.setAttribute('class','axis'); t.textContent=r.label; svg.appendChild(t);
   }});
 
-  marks.forEach((bm)=>{{
-    const col = punctColor(bm.minutes);
+  marks.forEach((bm,mi)=>{{
+    const col = punctColor(bm.minutes, mi, marks.length);
     const pts = rows.map((r,i)=>[x(i), y(r.rates[bm.code])]);
-    svg.appendChild(el('path',{{d:smoothPath(pts),fill:'none',stroke:col,
+    svg.appendChild(el('path',{{d:smoothPath(pts, y(100), y(0)),fill:'none',stroke:col,
       'stroke-width':2.5,'stroke-linejoin':'round','stroke-linecap':'round',opacity:0.9}}));
     pts.forEach(pt=>{{ svg.appendChild(el('circle',{{cx:pt[0],cy:pt[1],
       r:2.6,fill:col,opacity:0.9}})); }});

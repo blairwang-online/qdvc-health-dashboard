@@ -208,14 +208,18 @@ the payload as `weekly` / `monthly` / `weekly_thr` / `monthly_thr` alongside the
 Series lines are coloured from the **time-of-day palette**, sampled at each
 target's clock time, so a line's hue matches the time it represents (midnight
 lines blue, 3AM lines purple, etc.). Because every target clusters near one
-bedtime, the raw samples would be near-identical, so `punctColor()` in the JS
-keeps each sample's **hue** but applies a **uniform** saturation/luminosity
-adjustment across all lines (constants `PUNCT_SAT_MIN`, `PUNCT_SAT_GAIN`,
-`PUNCT_LIGHT`): saturation is boosted and lightness pinned to a mid value chosen
-to read on **both** the light and dark themes. The lines are smoothed with a
-Catmull-Rom spline (`smoothPath()`). This still respects the §7 invariant — the
-colours derive from the literal-hex palette (via `todRgb`), never from a themed
-CSS variable, so they don't shift between themes.
+bedtime, the raw samples would be near-identical, so `punctColor(mins, idx,
+total)` in the JS keeps each sample's **hue**, boosts **saturation** uniformly
+(`PUNCT_SAT_MIN`, `PUNCT_SAT_GAIN`), and **spreads lightness across the ladder**
+(`PUNCT_LIGHT_LO`..`PUNCT_LIGHT_HI`, indexed by the line's position): the
+earliest/hardest target is darkest, the latest/easiest lightest, so adjacent
+same-hue lines separate. The range is kept mid-toned so every line reads on
+**both** the light and dark themes. The lines are smoothed with a Catmull-Rom
+spline (`smoothPath(pts, yMin, yMax)`); its Bézier control points are clamped to
+the plot band `[y(100), y(0)]` so a curve between two data points can never bow
+below 0% or above 100% (the data anchors are already in range). This still
+respects the §7 invariant — the colours derive from the literal-hex palette (via
+`todRgb`), never from a themed CSS variable, so they don't shift between themes.
 
 ---
 
