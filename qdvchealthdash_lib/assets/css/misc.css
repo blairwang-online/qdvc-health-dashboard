@@ -1,0 +1,15 @@
+  .warn { font-size:13px; color:var(--muted); margin-top:8px; }
+  .warn summary { cursor:pointer; }
+  .warn ul { margin:8px 0 0; padding-left:18px; }
+  footer { color:var(--muted); font-size:12px; margin-top:28px;
+    font-family:ui-monospace,monospace; }
+  @media (max-width:760px) {
+    .hero { grid-template-columns:1fr; text-align:center; justify-items:center; }
+    .grid { grid-template-columns:repeat(2,1fr); }
+    .cols { grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion:no-preference) {
+    .arc-fg { animation:draw 1.1s ease-out forwards; }
+    @keyframes draw { from { stroke-dashoffset:var(--circ); } }
+  }
+

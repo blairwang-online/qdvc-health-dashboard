@@ -1,0 +1,40 @@
+  header { margin-bottom:8px; }
+  .eyebrow {
+    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12px;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--muted);
+  }
+  h1 { font-size:38px; line-height:1.1; margin:6px 0 4px; font-weight:600; }
+  .sub { color:var(--muted); font-size:15px; }
+
+  /* Hero: the sleep-health score as an arc */
+  .hero {
+    display:grid; grid-template-columns:auto 1fr; gap:36px;
+    align-items:center; margin:32px 0 28px; padding:28px 32px;
+    background:var(--hero-grad);
+    border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow);
+  }
+  .gauge { position:relative; width:184px; height:184px; }
+  .gauge .val {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+  }
+  .gauge .num { font-size:52px; font-weight:600; line-height:1; }
+  .gauge .of { font-size:13px; color:var(--muted); margin-top:4px;
+    font-family:ui-monospace,monospace; }
+  .verdict { font-size:26px; margin:0 0 6px; }
+  .verdict small { display:block; font-size:14px; color:var(--muted);
+    font-family:ui-monospace,monospace; letter-spacing:.04em; margin-top:8px;}
+  .breakdown { margin-top:14px; display:flex; gap:22px; flex-wrap:wrap; }
+  .breakdown div { font-size:13px; color:var(--muted); }
+  .breakdown b { display:block; font-size:22px; color:var(--ink); font-weight:600; }
+
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:26px; }
+  .stat {
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px 18px 16px; box-shadow:var(--shadow);
+  }
+  .stat .k { font-family:ui-monospace,monospace; font-size:11px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .stat .v { font-size:30px; font-weight:600; margin-top:6px; }
+  .stat .n { font-size:12.5px; color:var(--muted); margin-top:2px; }
+

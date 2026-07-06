@@ -1,0 +1,14 @@
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:__FONT_STACK__;
+    -webkit-font-smoothing:antialiased;
+    transition:background .35s ease, color .35s ease;
+  }
+  /* page = main column + right sidebar */
+  .page {
+    display:grid; grid-template-columns:minmax(0,1fr) 264px;
+    gap:0; max-width:1380px; margin:0 auto; align-items:start;
+  }
+  .wrap { max-width:1040px; margin:0 auto; padding:40px 24px 72px; }
+  html { scroll-padding-top:24px; }
+

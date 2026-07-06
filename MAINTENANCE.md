@@ -39,16 +39,22 @@ qdvchealthdash_lib/
 ├── data.py                     Night dataclass, CSV parsing, time helpers
 ├── archetypes.py               Bedtime/wake bucket classification + persona lookup
 ├── analysis.py                 analyse() and all metric/aggregation helpers
-├── assets.py                   Loads the asset files below (via importlib.resources)
+├── assets.py                   Loads + concatenates the asset files below (importlib.resources)
 ├── icons.py                    Maps persona names → assets/icons/*.svg + wraps them
-├── render.py                   HTML template (f-string) + asset wiring
+├── render.py                   HTML template (f-string) + asset wiring + JSON script tags
 └── assets/                     Front-end sources, inlined at generate time
-    ├── dashboard.css           All page CSS (placeholder: __FONT_STACK__)
-    ├── dashboard.js            All chart/UI JS (placeholders: __DATA_JSON__, __PERSONA_CARDS_JSON__)
+    ├── css/                    Stylesheet split into components (see assets._CSS_FILES for order)
+    ├── js/                     Page script split into components (see assets._JS_FILES for order)
     └── icons/                  Nine persona SVGs (currentColor silhouettes), one file each
 README.md                       User-facing cover page
 MAINTENANCE.md                  This file
 ```
+
+The CSS component (`assets/css/*.css`, one placeholder `__FONT_STACK__`) is
+joined in cascade order; the JS components (`assets/js/*.js`, fully static) are
+joined in execution order. Both orders are the manifests `_CSS_FILES` /
+`_JS_FILES` in `assets.py` — to add a component, create the file and add it to
+the relevant tuple.
 
 **Packaging note:** the files under `assets/` are package *data*. There is no
 build config today (the tool runs in place), but if you ever add a
@@ -163,11 +169,16 @@ The returned dict also carries `tod_anchors` (for the JS palette) and `table7`
 The page's CSS, JS, and persona SVGs live as files under `assets/` (see §2), not
 embedded in Python. `assets.py` reads them at generate time via
 `importlib.resources` (so it works in place or installed) and caches the results.
-`load_css()` / `load_js()` return the raw text (still containing their
-`__PLACEHOLDER__` tokens); `load_icon_inner(slug)` returns just the inner markup
-of an icon file (stripping the outer `<svg>` wrapper) so callers can re-wrap it
-with a chosen CSS class. Nothing here is fetched at runtime by the generated
-page — it's all inlined, preserving the offline guarantee.
+The CSS and JS are each **split into component files** (`assets/css/*.css`,
+`assets/js/*.js`); `load_css()` / `load_js()` concatenate their components in the
+fixed order given by the `_CSS_FILES` / `_JS_FILES` manifests and return one blob
+each. CSS order follows the cascade (tokens first); JS order follows dependencies
+(shared scope, so `data.js` and `helpers.js` come before the features that use
+them). `load_css()`'s blob still contains the `__FONT_STACK__` placeholder;
+`load_js()`'s is fully static. `load_icon_inner(slug)` returns just the inner
+markup of an icon file (stripping the outer `<svg>` wrapper) so callers can
+re-wrap it with a chosen CSS class. Nothing here is fetched at runtime by the
+generated page — it's all inlined, preserving the offline guarantee.
 
 ### icons.py — persona illustrations
 `persona_icon_svg(name, cls)` maps a persona name to its file
@@ -183,13 +194,17 @@ as the persona name maps to that slug).
 
 ### render.py — the page
 Holds the HTML document skeleton as one f‑string with `{styles}` and `{scripts}`
-slots; `render_html()` loads the CSS/JS from `assets.py`, fills their
-`__PLACEHOLDER__` tokens (`__FONT_STACK__` in CSS; `__DATA_JSON__` and
-`__PERSONA_CARDS_JSON__` in JS), and drops them into those slots. Only the HTML
-body remains an f‑string (see §8 for the brace gotcha — it no longer applies to
-the CSS/JS, which are now plain files). `_reference_table_html()` builds the
-static persona grid; `_persona_cards()` builds the JSON the modal reads;
-`render_html()` assembles everything.
+slots; `render_html()` loads the concatenated CSS/JS from `assets.py`, fills the
+CSS's `__FONT_STACK__` placeholder, and drops both into those slots. The page's
+JSON data is **not** interpolated into the JS; instead `render_html` emits two
+`<script type="application/json">` blocks (ids `dashboard-data` and
+`persona-cards`) just before the main script, and the JS reads them with
+`JSON.parse(...)` (see §8a). The JSON is escaped for safe embedding by
+`_json_for_script()` (`<`, `>`, `&` → `\uXXXX`). Only the HTML body remains an
+f‑string (see §8 for the brace gotcha — it doesn't apply to the CSS/JS, which are
+plain files). `_reference_table_html()` builds the static persona grid;
+`_persona_cards()` builds the JSON the modal reads; `render_html()` assembles
+everything.
 
 ---
 
@@ -279,25 +294,26 @@ are shipped to JS via `_tat_config()`.
 ## 7. Theming (light / dark) — and what must NOT be themed
 
 Dark mode is implemented purely as CSS‑variable overrides under
-`html[data-theme="dark"]` (see the `:root` and dark blocks near the top of
-`assets/dashboard.css`). The theme defaults by local hour (dark 21:00–05:59,
-light otherwise) and can be toggled from the sidebar.
+`html[data-theme="dark"]` (see `assets/css/tokens.css`, which holds the `:root`
+variables and the dark‑theme block). The theme defaults by local hour (dark
+21:00–05:59, light otherwise) and can be toggled from the sidebar.
 
 **Invariant to preserve:** the time‑of‑day colour scheme must look identical in
 both themes. This holds only because those colours are emitted as literal hex
-from the palette (Python and the `dashboard.js` mirror), never through a CSS
-variable. If you ever route a time‑of‑day colour through a `var(--…)`, dark mode
-will corrupt it. Keep semantic surface colours (`--ink`, `--paper`, `--card`,
-`--line`, `--inset`, `--body-2`, etc.) themed, and keep the palette literal.
+from the palette (Python and the JS mirror in `assets/js/helpers.js`), never
+through a CSS variable. If you ever route a time‑of‑day colour through a
+`var(--…)`, dark mode will corrupt it. Keep semantic surface colours (`--ink`,
+`--paper`, `--card`, `--line`, `--inset`, `--body-2`, etc.) themed, and keep the
+palette literal.
 
 ---
 
 ## 8. render.py f‑string gotcha (the #1 way to break the build)
 
-**Scope note:** since the CSS and JS now live in `assets/dashboard.css` and
-`assets/dashboard.js` as plain files, they use **ordinary single braces** — edit
-them like any normal CSS/JS. The gotcha below applies **only to the HTML body
-that remains inside the f‑string in `render.py`**.
+**Scope note:** the CSS and JS live as plain files under `assets/css/` and
+`assets/js/` (concatenated by `assets.py`), so they use **ordinary single
+braces** — edit them like any normal CSS/JS. The gotcha below applies **only to
+the HTML body that remains inside the f‑string in `render.py`**.
 
 The HTML skeleton in `render.py` is still a single Python f‑string. Therefore,
 within that string:
@@ -306,22 +322,38 @@ within that string:
   unescaped brace either throws at generate time or, worse, silently interpolates
   a stray Python name. (In practice the HTML body has very few literal braces.)
 - **Real interpolations use single braces**: `{styles}`, `{scripts}`,
-  `{reference_table}`, `{warn_html}`, `{score}`, `{a['avg_bed']}`, etc. Anything
-  substituted from Python is single‑braced.
-- The `{styles}` and `{scripts}` slots receive the loaded asset text (with its
-  `__PLACEHOLDER__` tokens already filled by `render_html`). Because that text is
-  injected *after* f‑string evaluation, its braces are **not** subject to the
-  doubling rule — another reason the CSS/JS files stay brace‑clean.
+  `{reference_table}`, `{warn_html}`, `{score}`, `{a['avg_bed']}`,
+  `{data_json}`, `{persona_cards_json}`, etc. Anything substituted from Python is
+  single‑braced.
+- The `{styles}` and `{scripts}` slots receive the loaded asset text (the CSS
+  with its `__FONT_STACK__` already filled). Because that text is injected
+  *after* f‑string evaluation, its braces are **not** subject to the doubling
+  rule — another reason the CSS/JS files stay brace‑clean.
 
-Placeholder substitution in the assets uses plain `str.replace` on distinctive
-`__UPPER_SNAKE__` tokens (`__FONT_STACK__`, `__DATA_JSON__`,
-`__PERSONA_CARDS_JSON__`). If you add a new Python→asset value, invent a new such
-token and fill it in `render_html`; don't reintroduce f‑string interpolation into
-the asset files.
+The one remaining asset placeholder, `__FONT_STACK__` in the CSS, is filled by a
+plain `str.replace` in `render_html`. If you add a new Python→CSS value, invent a
+new such `__UPPER_SNAKE__` token and fill it there; don't reintroduce f‑string
+interpolation into the asset files. (The JS needs no such tokens — see §8a.)
 
 After editing `render.py` **or** an asset file, **always** regenerate and run the
 JS through a syntax check (see §9). `node --check` on the inlined script catches
-both a stray brace in the HTML body and a plain syntax slip in `dashboard.js`.
+both a stray brace in the HTML body and a plain syntax slip in the JS components.
+
+## 8a. Data hand-off: JSON script tags (not JS interpolation)
+
+The page's data reaches the JS through two `<script type="application/json">`
+blocks that `render_html` emits before the main `<script>`:
+`id="dashboard-data"` (the `analyse()` dict) and `id="persona-cards"` (the modal
+payload). `assets/js/data.js` reads them with
+`JSON.parse(document.getElementById(...).textContent)`. This keeps the JS fully
+static (no build‑time substitution) and avoids embedding a large JS literal.
+
+Because the data can contain HTML‑significant characters (the persona icons are
+inline SVG), `_json_for_script()` escapes `<`, `>`, and `&` to `\uXXXX` before
+embedding, so a stray `</script>` in the data can't break out of the tag. These
+escapes are valid JSON, so `JSON.parse` restores the exact values. If you add a
+third data blob, follow the same pattern: emit a typed JSON script tag with a
+unique id, escape via `_json_for_script`, and `JSON.parse` it by id in the JS.
 
 Related: multiple tab bars exist (timing tabs `#timingTabs`, punctuality tabs
 `#punctTabs` — the latter now has four tabs: benchmarks/thresholds × weekly/
@@ -343,8 +375,10 @@ python sleep_dashboard.py sleep_demo.csv -o out.html
 # 2. Extract the inlined <script> and syntax-check it (needs node)
 python -c "import re;open('/tmp/d.js','w').write(re.search(r'<script>(.*?)</script>',open('out.html').read(),re.S).group(1))"
 node --check /tmp/d.js
-#    (For a quick check of the source before generating, you can also lint
-#     assets/dashboard.js directly after stubbing its two __…__ placeholders.)
+#    (To check a single JS component before generating, lint it directly:
+#     node --check qdvchealthdash_lib/assets/js/punctuality.js — but note the
+#     components share one scope, so cross-file references only resolve once
+#     concatenated by assets.load_js().)
 
 # 3. (Optional) screenshot with Playwright to eyeball layout, both themes
 #    document.documentElement.setAttribute('data-theme','dark'|'light')
@@ -379,16 +413,20 @@ the ladder (benchmarks) and across the two thresholds.
 - **Redraw / add a persona icon** → edit or add `assets/icons/<slug>.svg`
   (slug = persona name lower‑cased, spaces → hyphens); keep the `0 0 100 100`
   viewBox and currentColor‑only rule. No Python change if the name→slug holds.
-- **Restyle the page** → edit `assets/dashboard.css` (plain CSS, single braces).
-- **Change chart/UI behaviour** → edit `assets/dashboard.js` (plain JS, single
-  braces). Use the `__DATA_JSON__` / `__PERSONA_CARDS_JSON__` tokens for data.
+- **Restyle the page** → edit the relevant file in `assets/css/` (plain CSS,
+  single braces). New component: add the file and list it in `_CSS_FILES`.
+- **Change chart/UI behaviour** → edit the relevant file in `assets/js/` (plain
+  JS, single braces). New component: add the file and list it in `_JS_FILES` in
+  dependency order. The data is already available as the globals `A` and
+  `PERSONA_CARDS` (parsed from the JSON script tags in `data.js`).
 - **Retune the colour scheme** → edit `_TOD_ANCHORS` in colors.py (Python) — the
   JS mirror is fed automatically from `tod_anchors`, so no JS edit needed.
 - **Change Decision‑support behaviour** → edit the `TAT_*` constants in config.py;
   they flow to JS via `_tat_config`.
-- **Adjust chart height / ordering** → in `assets/dashboard.js`,
-  `renderDuration`/`renderClock` use `rowH` for per‑row height and receive
-  newest‑first items from `buildView` (which `.reverse()`s the series).
+- **Adjust chart height / ordering** → in `assets/js/chart-duration.js` /
+  `chart-clock.js`, `renderDuration`/`renderClock` use `rowH` for per‑row height
+  and receive newest‑first items from `buildView` (in `helpers.js`, which
+  `.reverse()`s the series).
 
 ---
 
@@ -399,8 +437,12 @@ the ladder (benchmarks) and across the two thresholds.
 - The time‑of‑day palette is **literal hex**, defined once in `_TOD_ANCHORS`,
   mirrored to JS via the payload — never themed, never a CSS var.
 - The `render.py` HTML body is an f‑string: **double literal braces there**. The
-  CSS/JS in `assets/` are plain files (single braces); data flows in via
-  `__UPPER_SNAKE__` placeholders filled in `render_html`.
+  CSS/JS under `assets/css/` and `assets/js/` are plain files (single braces),
+  concatenated in `_CSS_FILES` / `_JS_FILES` order. The CSS's `__FONT_STACK__` is
+  the only asset placeholder; the JS gets its data from the JSON script tags.
+- Data reaches the JS via `<script type="application/json">` tags (ids
+  `dashboard-data`, `persona-cards`), escaped by `_json_for_script`; the JS
+  `JSON.parse`s them. Don't inline data as a JS literal.
 - Persona icons are **`currentColor` only**, `0 0 100 100` viewBox, one `.svg`
   per persona under `assets/icons/`.
 - The `analyse()` return dict must stay **JSON‑serialisable** (it is `json.dumps`‑ed

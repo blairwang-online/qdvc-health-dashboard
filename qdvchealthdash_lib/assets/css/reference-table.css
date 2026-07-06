@@ -1,0 +1,70 @@
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  svg { display:block; width:100%; height:auto; overflow:visible; }
+  .axis { font-family:ui-monospace,monospace; font-size:10.5px; fill:var(--muted); }
+  .axis-top { font-weight:600; fill:var(--ink); }
+  .axis-date { fill:var(--muted); }
+
+  table.archetype { width:100%; border-collapse:collapse; margin-top:4px; }
+  table.archetype th {
+    text-align:left; font-family:ui-monospace,monospace; font-size:10.5px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+    font-weight:600; padding:0 12px 10px; border-bottom:1px solid var(--line);
+  }
+  table.archetype td {
+    padding:12px; border-bottom:1px solid var(--line); font-size:15px;
+    vertical-align:middle;
+  }
+  table.archetype tr:last-child td { border-bottom:0; }
+  table.archetype td.date { font-weight:600; white-space:nowrap; }
+  table.archetype td.time { font-family:ui-monospace,monospace; font-size:14px;
+    color:var(--ink); }
+  .pill {
+    display:inline-block; padding:4px 12px; border-radius:999px;
+    font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap;
+  }
+  .tablenote { margin:16px 0 0; color:var(--muted); font-size:12.5px;
+    font-style:italic; }
+
+  .ref-wrap { margin-top:28px; padding-top:22px; border-top:1px dashed var(--line);
+    overflow-x:auto; }
+  table.reference { width:100%; border-collapse:separate; border-spacing:6px;
+    table-layout:fixed; min-width:560px; }
+  table.reference th.ref-corner { width:130px; }
+  table.reference th.ref-endhead, table.reference th.ref-rowhead {
+    text-align:left; padding:6px 8px; vertical-align:middle;
+  }
+  table.reference .ref-tag {
+    display:inline-block; padding:4px 12px; border-radius:999px;
+    font-family:ui-monospace,monospace; font-size:12px; font-weight:600;
+    line-height:1.3;
+  }
+  /* Begin-archetype tag: forward-pointing pentagon ("|||>") whose point aims
+     at the persona cells to its right. Block-level so multi-line labels form a
+     consistent shape (a rectangle with a point) rather than an uneven pill. */
+  table.reference .ref-tag-begin {
+    display:block; border-radius:8px; padding:7px 20px 7px 12px;
+    clip-path:polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+    text-align:left; white-space:normal;
+  }
+  table.reference .ref-sub {
+    display:block; font-family:ui-monospace,monospace; font-size:10px;
+    font-weight:400; letter-spacing:.04em; color:var(--muted); margin-top:4px;
+  }
+  table.reference th.ref-endhead { text-align:center; }
+  td.ref-cell {
+    border-radius:10px; padding:11px 12px; vertical-align:top;
+    border:1px solid rgba(26,34,56,.08);
+  }
+  td.ref-cell .ref-name { display:block; font-weight:700; font-size:14px;
+    color:inherit; }
+  td.ref-cell .ref-hours { display:block; font-family:ui-monospace,monospace;
+    font-size:10.5px; font-weight:600; letter-spacing:.02em; margin-top:3px;
+    color:inherit; opacity:.8; }
+  td.ref-cell .ref-blurb { display:block; font-size:11.5px; line-height:1.35;
+    color:inherit; opacity:.85; margin-top:6px; }
+  @media (max-width:640px) {
+    table.archetype th:nth-child(2), table.archetype td:nth-child(2),
+    table.archetype th:nth-child(3), table.archetype td:nth-child(3) {
+      display:none;  /* hide raw times on very narrow screens */
+    }
+  }

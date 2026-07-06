@@ -1,0 +1,15 @@
+  /* two charts side by side */
+  .chart-duo { display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:8px; }
+  .chart-block { min-width:0; }
+  .chart-title {
+    font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:10px;
+  }
+  @media (max-width:720px) { .chart-duo { grid-template-columns:1fr; gap:22px; } }
+
+  /* Bedtime punctuality */
+  .punct-legend { display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:14px; }
+  .punct-legend-item { display:flex; align-items:center; gap:8px;
+    font-size:12.5px; color:var(--body-2); font-family:ui-monospace,monospace; }
+  .punct-swatch { width:14px; height:3px; border-radius:2px; display:inline-block; }
+

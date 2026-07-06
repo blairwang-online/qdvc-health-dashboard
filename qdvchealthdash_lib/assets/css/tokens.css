@@ -1,0 +1,31 @@
+:root {
+    --ink:#1a2238; --muted:#6b7394; --line:#e3e6f0;
+    --paper:#fbfbfd; --card:#ffffff;
+    --dawn1:#3a4a8c; --dawn2:#8a6bd1; --dawn3:#f2a65a;
+    --good:#4c9a7a; --warn:#d98443; --bad:#c65f5f;
+    --shadow:0 1px 2px rgba(26,34,56,.05),0 8px 24px rgba(26,34,56,.06);
+    /* semantic surfaces (themed) */
+    --inset:#eef0f7;            /* recessed controls: tab track, notes */
+    --inset-border:var(--line);
+    --body-2:#4a5170;           /* secondary body text */
+    --hero-grad:linear-gradient(135deg,#f4f2fb,#fdf6ef);
+    --hover-veil:rgba(255,255,255,.55);
+    --sidebar-bg:#ffffff;
+  }
+  html[data-theme="dark"] {
+    --ink:#e8ebf5; --muted:#9aa3c4; --line:#2b3350;
+    --paper:#0f1320; --card:#171c2c;
+    /* dawn accents nudged brighter so they read on dark surfaces; these are
+       UI accents only — the time-of-day palette is emitted as literal hex in
+       JS and is deliberately never routed through these variables. */
+    --dawn1:#7d8ce0; --dawn2:#a189e0; --dawn3:#f2a65a;
+    --good:#5cb894; --warn:#e0996a; --bad:#d97b7b;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    --inset:#1e2436; --inset-border:#2b3350;
+    --body-2:#b9c0dc;
+    --hero-grad:linear-gradient(135deg,#1c2036,#241c2b);
+    --hover-veil:rgba(255,255,255,.06);
+    --sidebar-bg:#131826;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }

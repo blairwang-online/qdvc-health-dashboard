@@ -17,6 +17,22 @@ from .icons import persona_icon_svg
 from .assets import load_css, load_js
 
 
+def _json_for_script(obj) -> str:
+    """Serialise ``obj`` for safe embedding inside an HTML
+    ``<script type="application/json">`` block.
+
+    JSON is valid JS, but a literal ``</script`` (or ``<!--``) in the data could
+    otherwise close the tag early, so the HTML-significant characters ``<``,
+    ``>`` and ``&`` are escaped to their ``\\uXXXX`` forms. These remain valid
+    JSON (``JSON.parse`` restores them), so the parsed value is unchanged."""
+    return (
+        json.dumps(obj)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
 def _reference_table_html() -> str:
     """Build the static composite-archetype reference grid. Rows are begin
     buckets, columns are end buckets; each cell blends the two spectrum colours
@@ -87,18 +103,18 @@ def _persona_cards() -> list[list[dict]]:
 
 
 def render_html(a: dict, warnings: list[str], source: str) -> str:
-    data_json = json.dumps(a)
     reference_table = _reference_table_html()
-    persona_cards_json = json.dumps(_persona_cards())
+    # Payloads for the two <script type="application/json"> blocks the page's JS
+    # reads on load (see the tags near the end of <body> and dashboard.js).
+    data_json = _json_for_script(a)
+    persona_cards_json = _json_for_script(_persona_cards())
 
     # Static front-end assets live in files under assets/ and are inlined here at
-    # generate time; their few Python-provided values are substituted via simple
-    # __PLACEHOLDER__ tokens (the assets are plain CSS/JS, not Python f-strings,
-    # so they use ordinary single braces — see MAINTENANCE.md §8).
+    # generate time. The CSS still carries one Python value (the font stack) via a
+    # __PLACEHOLDER__ token; the JS is fully static (it reads its data from the
+    # JSON script tags), so it needs no substitution — see MAINTENANCE.md §8.
     styles = load_css().replace("__FONT_STACK__", FONT_STACK).rstrip("\n")
-    scripts = (load_js()
-               .replace("__DATA_JSON__", data_json)
-               .replace("__PERSONA_CARDS_JSON__", persona_cards_json)).rstrip("\n")
+    scripts = load_js().rstrip("\n")
 
     warn_html = ""
     if warnings:
@@ -359,6 +375,8 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   </div>
 </div>
 
+<script type="application/json" id="dashboard-data">{data_json}</script>
+<script type="application/json" id="persona-cards">{persona_cards_json}</script>
 <script>
 {scripts}
 </script>

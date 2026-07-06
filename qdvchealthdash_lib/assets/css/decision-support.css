@@ -1,0 +1,48 @@
+  /* Decision support */
+  .ds-ambition { margin:4px auto 24px; max-width:420px; text-align:center; }
+  .ds-ambition label {
+    display:block; font-family:ui-monospace,monospace; font-size:11px;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+    margin-bottom:8px;
+  }
+  .ds-ambition input[type=range] { width:100%; accent-color:var(--dawn2); }
+  .ds-ticks { display:flex; justify-content:space-between; margin-top:4px;
+    font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); }
+  .ds-body { display:grid; grid-template-columns:1.05fr 0.95fr; gap:28px; }
+  .ds-timeline { position:relative; }
+  .ds-step {
+    position:relative; display:grid; grid-template-columns:52px 22px 1fr;
+    gap:10px; align-items:start; padding:0 0 22px 0;
+  }
+  .ds-step:last-child { padding-bottom:0; }
+  /* vertical connector line runs through the dot column (middle column) */
+  .ds-step::before {
+    content:""; position:absolute; left:72px; top:20px; bottom:-2px; width:2px;
+    background:var(--line); transform:translateX(-50%);
+  }
+  .ds-step:last-child::before { display:none; }
+  .ds-time {
+    font-family:ui-monospace,monospace; font-size:14px; font-weight:600;
+    color:var(--ink); text-align:right; padding-top:1px; white-space:nowrap;
+  }
+  .ds-dot {
+    display:block; width:15px; height:15px; border-radius:50%; margin:2px auto 0;
+    border:3px solid var(--card); box-shadow:0 0 0 1px var(--line);
+    position:relative; z-index:1;
+  }
+  .ds-steptitle { font-weight:600; font-size:14.5px; margin-bottom:2px; }
+  .ds-stepbody { font-size:13px; color:var(--body-2); line-height:1.4; }
+  .ds-notes {
+    background:var(--inset); border:1px solid var(--inset-border); border-radius:14px;
+    padding:18px 20px; align-self:start;
+  }
+  .ds-notes h3 {
+    font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 12px;
+  }
+  .ds-notes ul { margin:0; padding-left:18px; }
+  .ds-notes li { font-size:13px; line-height:1.5; color:var(--body-2); margin-bottom:9px; }
+  .ds-notes li:last-child { margin-bottom:0; }
+  .ds-notes b { color:var(--ink); }
+  @media (max-width:720px) { .ds-body { grid-template-columns:1fr; gap:22px; } }
+
