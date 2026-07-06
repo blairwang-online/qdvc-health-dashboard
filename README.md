@@ -42,14 +42,19 @@ Then open `dashboard.html` in your browser. With no arguments it looks for
 A header row followed by one row per night:
 
 ```csv
-sleep_date, begin_hhmm, end_hhmm
-2026-07-02,0115,0915
-2026-07-03,2330,0623
+sleep_date,begin_hhmm,end_hhmm
+2026-07-02,0115h,0915h
+2026-07-03,2330h,0623h
 ```
 
 - `sleep_date` — the morning you woke (ISO `YYYY-MM-DD`).
-- `begin_hhmm` — clock time you fell asleep (`HHMM`).
-- `end_hhmm` — clock time you woke (`HHMM`).
+- `begin_hhmm` — clock time you fell asleep (`HHMMh`, e.g. `2330h`).
+- `end_hhmm` — clock time you woke (`HHMMh`, e.g. `0623h`).
+
+The trailing `h` on the time columns is a marker so spreadsheet software keeps
+them as text (rather than stripping the leading zero or reformatting them as
+numbers). The older suffix-less form (`2330`) is still accepted, as is an
+optional colon (`23:30h`).
 
 If `begin_hhmm` is later than `end_hhmm`, the night is assumed to cross midnight.
 Missing nights are fine — just leave the row out; gaps are handled gracefully.

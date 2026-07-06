@@ -90,6 +90,12 @@ to bed. If `begin_hhmm > end_hhmm`, the sleep crossed midnight, so `start` is se
 to the previous calendar day. `load_nights` never raises on a bad row — it skips
 it and appends a human‑readable message to the returned `warnings` list.
 
+The time columns carry a trailing `h` marker (e.g. `2330h`) so spreadsheet apps
+don't reformat them as numbers or drop the leading zero. `_parse_hhmm` strips an
+optional trailing `h`/`H` before parsing, so the current `HHMMh` form, the older
+bare `HHMM` form, and a colon variant (`HH:MMh`) all parse; keep any new
+time-cell handling tolerant of the suffix.
+
 ### 3.2 "Minutes since noon" — the critical convention
 
 Bedtimes straddle midnight, which makes naive clock arithmetic wrong (00:30 is

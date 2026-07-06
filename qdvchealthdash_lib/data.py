@@ -16,8 +16,18 @@ class Night:
 
 
 def _parse_hhmm(value: str) -> dt.time:
-    """Parse 'HHMM' (e.g. '0130' or '2330'). Also tolerates 'H:MM'/'HH:MM'."""
-    v = value.strip().replace(":", "")
+    """Parse a time-of-day cell into a ``dt.time``.
+
+    Accepts the current format with a trailing ``h`` marker (e.g. ``'2203h'``,
+    ``'0617h'``) — the ``h`` is a guard so spreadsheet software doesn't strip the
+    leading zero or reinterpret the value as a number. Also accepts the older
+    bare form (``'0130'``, ``'2330'``) and tolerates a colon (``'H:MM'`` /
+    ``'HH:MM'``, optionally with the ``h`` suffix). Matching is case-insensitive.
+    """
+    v = value.strip().lower()
+    if v.endswith("h"):
+        v = v[:-1]
+    v = v.replace(":", "")
     if not v.isdigit() or len(v) > 4:
         raise ValueError(f"bad time {value!r}")
     v = v.zfill(4)
