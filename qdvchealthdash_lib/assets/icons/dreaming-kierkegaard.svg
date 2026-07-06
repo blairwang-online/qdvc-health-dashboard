@@ -1,0 +1,15 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="50" cy="50" r="48" fill="currentColor" opacity="0.12"/>
+  <g opacity="0.85">
+    <path d="M18 68 C28 62 42 62 48 66 L48 72 C42 68 28 68 18 74 Z" fill="currentColor" opacity="0.5"/>
+    <path d="M52 66 C58 62 72 62 82 68 L82 74 C72 68 58 68 52 72 Z" fill="currentColor" opacity="0.5"/>
+    <path d="M18 68 C28 60 42 60 48 65 L48 40 C42 35 28 35 18 43 Z" fill="currentColor" opacity="0.30"/>
+    <path d="M52 65 C58 60 72 60 82 68 L82 43 C72 35 58 35 52 40 Z" fill="currentColor" opacity="0.30"/>
+    <path d="M18 68 C28 60 42 60 48 65 C52 60 66 60 82 68 L82 43 C66 35 52 35 48 40 C42 35 28 35 18 43 Z"
+          fill="none" stroke="currentColor" stroke-width="3"/>
+    <line x1="48" y1="40" x2="48" y2="65" stroke="currentColor" stroke-width="2.5" opacity="0.7"/>
+  </g>
+  <text x="58" y="34" font-family="monospace" font-size="20" font-weight="700" fill="currentColor" opacity="0.9">z</text>
+  <text x="71" y="24" font-family="monospace" font-size="15" font-weight="700" fill="currentColor" opacity="0.72">z</text>
+  <text x="81" y="16" font-family="monospace" font-size="11" font-weight="700" fill="currentColor" opacity="0.55">z</text>
+</svg>

@@ -1,0 +1,17 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="50" cy="50" r="48" fill="currentColor" opacity="0.12"/>
+  <g stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.7">
+    <line x1="50" y1="10" x2="50" y2="18"/>
+    <line x1="22" y1="20" x2="27" y2="26"/>
+    <line x1="78" y1="20" x2="73" y2="26"/>
+    <line x1="14" y1="44" x2="22" y2="44"/>
+    <line x1="86" y1="44" x2="78" y2="44"/>
+  </g>
+  <path d="M50 18 C37 18 28 27 28 39 C28 48 34 53 38 59 C40 62 41 65 41 68 L59 68
+           C59 65 60 62 62 59 C66 53 72 48 72 39 C72 27 63 18 50 18 Z" fill="currentColor" opacity="0.30"/>
+  <path d="M50 18 C37 18 28 27 28 39 C28 48 34 53 38 59 C40 62 41 65 41 68 L59 68
+           C59 65 60 62 62 59 C66 53 72 48 72 39 C72 27 63 18 50 18 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.85"/>
+  <path d="M44 38 l6 8 6 -8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <rect x="42" y="71" width="16" height="4" rx="2" fill="currentColor" opacity="0.85"/>
+  <rect x="44" y="77" width="12" height="4" rx="2" fill="currentColor" opacity="0.7"/>
+</svg>

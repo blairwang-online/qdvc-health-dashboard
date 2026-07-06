@@ -11,14 +11,16 @@ here are non‑obvious and easy to break.
 `sleep_dashboard.py` reads a CSV of nightly sleep records and emits **one
 self‑contained HTML file**. All CSS and JavaScript are inlined into that file;
 there are no external assets, no network calls, and no build step. The generated
-page is fully static and works offline.
+page is fully static and works offline. (The CSS/JS/SVG *sources* live as
+separate files under `qdvchealthdash_lib/assets/` for editability, but they are
+read and inlined at generate time — see §2 and §4 — so the output is unchanged.)
 
 The pipeline is deliberately linear:
 
 ```
 CSV file ──load_nights──> [Night]         (parse + validate)
 [Night]  ──analyse──────> analysis dict   (all metrics, JSON-serialisable)
-analysis ──render_html──> HTML string     (page + inlined CSS/JS)
+analysis ──render_html──> HTML string     (page + inlined CSS/JS/SVG assets)
 ```
 
 The entry point (`sleep_dashboard.py`) does only argument parsing and wiring;
@@ -37,11 +39,22 @@ qdvchealthdash_lib/
 ├── data.py                     Night dataclass, CSV parsing, time helpers
 ├── archetypes.py               Bedtime/wake bucket classification + persona lookup
 ├── analysis.py                 analyse() and all metric/aggregation helpers
-├── icons.py                    Nine persona SVG icons (currentColor silhouettes)
-└── render.py                   HTML/CSS/JS template + chart-drawing JS  (the big one)
+├── assets.py                   Loads the asset files below (via importlib.resources)
+├── icons.py                    Maps persona names → assets/icons/*.svg + wraps them
+├── render.py                   HTML template (f-string) + asset wiring
+└── assets/                     Front-end sources, inlined at generate time
+    ├── dashboard.css           All page CSS (placeholder: __FONT_STACK__)
+    ├── dashboard.js            All chart/UI JS (placeholders: __DATA_JSON__, __PERSONA_CARDS_JSON__)
+    └── icons/                  Nine persona SVGs (currentColor silhouettes), one file each
 README.md                       User-facing cover page
 MAINTENANCE.md                  This file
 ```
+
+**Packaging note:** the files under `assets/` are package *data*. There is no
+build config today (the tool runs in place), but if you ever add a
+`pyproject.toml`/`setup.py`, declare `qdvchealthdash_lib/assets/**` as package
+data so it ships with an installed wheel. `assets.py` reads them through
+`importlib.resources`, so it works both in place and when installed.
 
 **Public API** (`from qdvchealthdash_lib import ...`):
 
@@ -146,19 +159,37 @@ renderer. Notable helpers:
 The returned dict also carries `tod_anchors` (for the JS palette) and `table7`
 (the per‑night persona table, newest first, with precomputed colours).
 
+### assets.py — front-end asset loader
+The page's CSS, JS, and persona SVGs live as files under `assets/` (see §2), not
+embedded in Python. `assets.py` reads them at generate time via
+`importlib.resources` (so it works in place or installed) and caches the results.
+`load_css()` / `load_js()` return the raw text (still containing their
+`__PLACEHOLDER__` tokens); `load_icon_inner(slug)` returns just the inner markup
+of an icon file (stripping the outer `<svg>` wrapper) so callers can re-wrap it
+with a chosen CSS class. Nothing here is fetched at runtime by the generated
+page — it's all inlined, preserving the offline guarantee.
+
 ### icons.py — persona illustrations
-`_ICON_INNER` maps each persona name to inner SVG markup drawn **entirely in
-`currentColor` at varying opacity**, inside a faint medallion circle.
-`persona_icon_svg(name, cls)` wraps it. Because the icon inherits `currentColor`
-(set to the card's auto‑contrast text colour) and uses translucent fills, the
-same icon reads on any tint, light or dark, and the underlying tint shows through.
-Keep the `0 0 100 100` viewBox and the currentColor‑only rule for new icons.
+`persona_icon_svg(name, cls)` maps a persona name to its file
+(`assets/icons/<slug>.svg`, slug = lower‑cased name with spaces → hyphens) via
+`assets.load_icon_inner`, then wraps the inner markup in an `<svg>` with the given
+class. Each icon is drawn **entirely in `currentColor` at varying opacity**,
+inside a faint medallion circle. Because the icon inherits `currentColor` (set to
+the card's auto‑contrast text colour) and uses translucent fills, the same icon
+reads on any tint, light or dark, and the underlying tint shows through. Keep the
+`0 0 100 100` viewBox and the currentColor‑only rule for new icons; add a new icon
+by dropping a `<slug>.svg` into `assets/icons/` (no Python change needed as long
+as the persona name maps to that slug).
 
 ### render.py — the page
-By far the largest module (~1400 lines) because it holds the entire HTML
-document as one big f‑string, including all CSS and JS. See §8 for the f‑string
-gotcha. `_reference_table_html()` builds the static persona grid; `_persona_cards()`
-builds the JSON the modal reads; `render_html()` assembles everything.
+Holds the HTML document skeleton as one f‑string with `{styles}` and `{scripts}`
+slots; `render_html()` loads the CSS/JS from `assets.py`, fills their
+`__PLACEHOLDER__` tokens (`__FONT_STACK__` in CSS; `__DATA_JSON__` and
+`__PERSONA_CARDS_JSON__` in JS), and drops them into those slots. Only the HTML
+body remains an f‑string (see §8 for the brace gotcha — it no longer applies to
+the CSS/JS, which are now plain files). `_reference_table_html()` builds the
+static persona grid; `_persona_cards()` builds the JSON the modal reads;
+`render_html()` assembles everything.
 
 ---
 
@@ -248,36 +279,49 @@ are shipped to JS via `_tat_config()`.
 ## 7. Theming (light / dark) — and what must NOT be themed
 
 Dark mode is implemented purely as CSS‑variable overrides under
-`html[data-theme="dark"]` (see the `:root` and dark blocks near the top of the
-CSS in render.py). The theme defaults by local hour (dark 21:00–05:59, light
-otherwise) and can be toggled from the sidebar.
+`html[data-theme="dark"]` (see the `:root` and dark blocks near the top of
+`assets/dashboard.css`). The theme defaults by local hour (dark 21:00–05:59,
+light otherwise) and can be toggled from the sidebar.
 
 **Invariant to preserve:** the time‑of‑day colour scheme must look identical in
 both themes. This holds only because those colours are emitted as literal hex
-from the palette (Python and JS), never through a CSS variable. If you ever route
-a time‑of‑day colour through a `var(--…)`, dark mode will corrupt it. Keep
-semantic surface colours (`--ink`, `--paper`, `--card`, `--line`, `--inset`,
-`--body-2`, etc.) themed, and keep the palette literal.
+from the palette (Python and the `dashboard.js` mirror), never through a CSS
+variable. If you ever route a time‑of‑day colour through a `var(--…)`, dark mode
+will corrupt it. Keep semantic surface colours (`--ink`, `--paper`, `--card`,
+`--line`, `--inset`, `--body-2`, etc.) themed, and keep the palette literal.
 
 ---
 
 ## 8. render.py f‑string gotcha (the #1 way to break the build)
 
-The entire HTML document is a single Python f‑string. Therefore:
+**Scope note:** since the CSS and JS now live in `assets/dashboard.css` and
+`assets/dashboard.js` as plain files, they use **ordinary single braces** — edit
+them like any normal CSS/JS. The gotcha below applies **only to the HTML body
+that remains inside the f‑string in `render.py`**.
 
-- **Every literal brace in the embedded CSS/JS must be doubled**: `{` → `{{` and
-  `}` → `}}`. A single unescaped brace either throws at generate time or, worse,
-  silently interpolates a stray Python name.
-- **Real interpolations use single braces**: `{FONT_STACK}`, `{data_json}`,
-  `{reference_table}`, `{persona_cards_json}`, `{a['score']}`, etc. Anything you
-  want substituted from Python is single‑braced; everything meant to survive into
-  the output as literal JS/CSS is double‑braced.
-- JS template literals therefore look like `` `0 0 ${{W}} ${{H}}` `` in the
-  source (the `${{…}}` becomes `${…}` in the emitted JS).
+The HTML skeleton in `render.py` is still a single Python f‑string. Therefore,
+within that string:
 
-After editing render.py, **always** regenerate and run the JS through a syntax
-check (see §9). A stray brace is the most common failure and the check catches it
-immediately.
+- **Every literal brace must be doubled**: `{` → `{{` and `}` → `}}`. A single
+  unescaped brace either throws at generate time or, worse, silently interpolates
+  a stray Python name. (In practice the HTML body has very few literal braces.)
+- **Real interpolations use single braces**: `{styles}`, `{scripts}`,
+  `{reference_table}`, `{warn_html}`, `{score}`, `{a['avg_bed']}`, etc. Anything
+  substituted from Python is single‑braced.
+- The `{styles}` and `{scripts}` slots receive the loaded asset text (with its
+  `__PLACEHOLDER__` tokens already filled by `render_html`). Because that text is
+  injected *after* f‑string evaluation, its braces are **not** subject to the
+  doubling rule — another reason the CSS/JS files stay brace‑clean.
+
+Placeholder substitution in the assets uses plain `str.replace` on distinctive
+`__UPPER_SNAKE__` tokens (`__FONT_STACK__`, `__DATA_JSON__`,
+`__PERSONA_CARDS_JSON__`). If you add a new Python→asset value, invent a new such
+token and fill it in `render_html`; don't reintroduce f‑string interpolation into
+the asset files.
+
+After editing `render.py` **or** an asset file, **always** regenerate and run the
+JS through a syntax check (see §9). `node --check` on the inlined script catches
+both a stray brace in the HTML body and a plain syntax slip in `dashboard.js`.
 
 Related: multiple tab bars exist (timing tabs `#timingTabs`, punctuality tabs
 `#punctTabs` — the latter now has four tabs: benchmarks/thresholds × weekly/
@@ -299,6 +343,8 @@ python sleep_dashboard.py sleep_demo.csv -o out.html
 # 2. Extract the inlined <script> and syntax-check it (needs node)
 python -c "import re;open('/tmp/d.js','w').write(re.search(r'<script>(.*?)</script>',open('out.html').read(),re.S).group(1))"
 node --check /tmp/d.js
+#    (For a quick check of the source before generating, you can also lint
+#     assets/dashboard.js directly after stubbing its two __…__ placeholders.)
 
 # 3. (Optional) screenshot with Playwright to eyeball layout, both themes
 #    document.documentElement.setAttribute('data-theme','dark'|'light')
@@ -312,9 +358,10 @@ Also verify the **edge cases** that have bitten past changes:
   between them).
 - Any new interactive control works from a fresh page load and after theme flips.
 
-Handy invariants to assert: `len(COMPOSITE_*)==3` and each row length 3; nine
-entries in `icons._ICON_INNER`; punctuality rates are monotonic across the ladder
-(benchmarks) and across the two thresholds.
+Handy invariants to assert: `len(COMPOSITE_*)==3` and each row length 3; a
+`.svg` exists in `assets/icons/` for every persona name (so `persona_icon_svg`
+never returns `""` for a real persona); punctuality rates are monotonic across
+the ladder (benchmarks) and across the two thresholds.
 
 ---
 
@@ -327,14 +374,21 @@ entries in `icons._ICON_INNER`; punctuality rates are monotonic across the ladde
   changed, the matching `*_SUBTITLES` and `*_BOUNDS`.
 - **Add a persona bucket** (make it 4×N) → extend `BEGIN_ARCHETYPES`, every
   `COMPOSITE_*` grid, `BEGIN_SUBTITLES`/`BEGIN_BOUNDS`, `_BEGIN_BG` sampling, and
-  add icons. This is the most invasive change; touch all grids together.
+  add an icon file per new persona under `assets/icons/`. This is the most
+  invasive change; touch all grids together.
+- **Redraw / add a persona icon** → edit or add `assets/icons/<slug>.svg`
+  (slug = persona name lower‑cased, spaces → hyphens); keep the `0 0 100 100`
+  viewBox and currentColor‑only rule. No Python change if the name→slug holds.
+- **Restyle the page** → edit `assets/dashboard.css` (plain CSS, single braces).
+- **Change chart/UI behaviour** → edit `assets/dashboard.js` (plain JS, single
+  braces). Use the `__DATA_JSON__` / `__PERSONA_CARDS_JSON__` tokens for data.
 - **Retune the colour scheme** → edit `_TOD_ANCHORS` in colors.py (Python) — the
   JS mirror is fed automatically from `tod_anchors`, so no JS edit needed.
 - **Change Decision‑support behaviour** → edit the `TAT_*` constants in config.py;
   they flow to JS via `_tat_config`.
-- **Adjust chart height / ordering** → in render.py, `renderDuration`/`renderClock`
-  use `rowH` for per‑row height and receive newest‑first items from `buildView`
-  (which `.reverse()`s the series).
+- **Adjust chart height / ordering** → in `assets/dashboard.js`,
+  `renderDuration`/`renderClock` use `rowH` for per‑row height and receive
+  newest‑first items from `buildView` (which `.reverse()`s the series).
 
 ---
 
@@ -344,8 +398,11 @@ entries in `icons._ICON_INNER`; punctuality rates are monotonic across the ladde
   display.
 - The time‑of‑day palette is **literal hex**, defined once in `_TOD_ANCHORS`,
   mirrored to JS via the payload — never themed, never a CSS var.
-- `render.py` is an f‑string: **double all literal CSS/JS braces**.
-- Persona icons are **`currentColor` only**, `0 0 100 100` viewBox.
+- The `render.py` HTML body is an f‑string: **double literal braces there**. The
+  CSS/JS in `assets/` are plain files (single braces); data flows in via
+  `__UPPER_SNAKE__` placeholders filled in `render_html`.
+- Persona icons are **`currentColor` only**, `0 0 100 100` viewBox, one `.svg`
+  per persona under `assets/icons/`.
 - The `analyse()` return dict must stay **JSON‑serialisable** (it is `json.dumps`‑ed
   straight into the page).
 - Scope any new tab group's JS by container id.
