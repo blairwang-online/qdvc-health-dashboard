@@ -1,0 +1,13 @@
+# Runtime dependencies for the sleep-health dashboard generator.
+# Install into a virtual environment (see README.md → "Setup").
+#
+#   python -m venv .venv
+#   source .venv/bin/activate      # Windows: .venv\Scripts\activate
+#   pip install -r requirements.txt
+#
+# Jinja2 renders the dashboard's HTML templates (qdvchealthdash_lib/assets/
+# templates/*.html.jinja). MarkupSafe is Jinja2's own dependency and powers the
+# autoescaping the templates rely on; it is pinned here for reproducible builds.
+
+Jinja2~=3.1
+MarkupSafe~=3.0

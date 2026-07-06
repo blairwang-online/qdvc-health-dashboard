@@ -30,6 +30,8 @@ from __future__ import annotations
 from functools import lru_cache
 from importlib import resources
 
+from jinja2 import Environment, FunctionLoader, select_autoescape
+
 # CSS components, in cascade order (earlier = lower specificity baseline).
 _CSS_FILES = (
     "tokens.css",            # :root custom properties + dark-theme overrides
@@ -103,6 +105,37 @@ def load_js() -> str:
     Fully static — it reads its data from the page's
     ``<script type="application/json">`` blocks."""
     return _concat("js", _JS_FILES)
+
+
+# --------------------------------------------------------------------------- #
+# HTML templating (Jinja2)
+# --------------------------------------------------------------------------- #
+# Templates live under assets/templates/*.html.jinja and are loaded through the
+# same importlib.resources path as every other asset (so it works in place or
+# installed). Autoescaping is ON: data values are escaped by default, and the
+# few trusted-HTML fragments (inlined CSS/JS, the pre-built reference table, the
+# persona SVGs, the pill style= attributes, the JSON script-tag bodies) are
+# marked ``| safe`` in the templates. The environment is built once and cached.
+
+@lru_cache(maxsize=None)
+def _jinja_env() -> Environment:
+    env = Environment(
+        loader=FunctionLoader(lambda name: load_text("templates", name)),
+        autoescape=select_autoescape(
+            enabled_extensions=("jinja", "html"), default=True
+        ),
+        # Trim the newline after a block tag and strip leading block whitespace,
+        # so ``{% ... %}`` control lines don't inject blank lines into the output.
+        trim_blocks=True,
+        lstrip_blocks=True,
+        keep_trailing_newline=False,
+    )
+    return env
+
+
+def get_template(name: str):
+    """Return the compiled Jinja template ``assets/templates/<name>``."""
+    return _jinja_env().get_template(name)
 
 
 def load_icon_inner(slug: str) -> str:

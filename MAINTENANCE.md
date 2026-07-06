@@ -10,17 +10,24 @@ here are non‑obvious and easy to break.
 
 `sleep_dashboard.py` reads a CSV of nightly sleep records and emits **one
 self‑contained HTML file**. All CSS and JavaScript are inlined into that file;
-there are no external assets, no network calls, and no build step. The generated
-page is fully static and works offline. (The CSS/JS/SVG *sources* live as
+the *generated page* has no external assets, no network calls, and works fully
+offline. (The CSS/JS/SVG sources — and the Jinja HTML templates — live as
 separate files under `qdvchealthdash_lib/assets/` for editability, but they are
-read and inlined at generate time — see §2 and §4 — so the output is unchanged.)
+read, rendered, and inlined at generate time — see §2 and §4 — so the output is
+still a single static file.)
+
+**One runtime dependency:** the generator uses **Jinja2** to render the HTML
+templates. It is the only third‑party package; install it via
+`pip install -r requirements.txt` (ideally in a venv — see README). Everything
+else is standard library. This is a deliberate exception to the former
+"stdlib‑only" rule, taken on when HTML templating moved to Jinja.
 
 The pipeline is deliberately linear:
 
 ```
 CSV file ──load_nights──> [Night]         (parse + validate)
 [Night]  ──analyse──────> analysis dict   (all metrics, JSON-serialisable)
-analysis ──render_html──> HTML string     (page + inlined CSS/JS/SVG assets)
+analysis ──render_html──> HTML string     (Jinja render + inlined CSS/JS/SVG)
 ```
 
 The entry point (`sleep_dashboard.py`) does only argument parsing and wiring;
@@ -32,6 +39,7 @@ all logic lives in the `qdvchealthdash_lib` package.
 
 ```
 sleep_dashboard.py              CLI entry point (argparse → pipeline → write file)
+requirements.txt                Runtime deps (Jinja2, MarkupSafe)
 qdvchealthdash_lib/
 ├── __init__.py                 Public API re-exports
 ├── config.py                   ALL tunable values (labels, thresholds, colours-as-anchors, copy)
@@ -39,12 +47,13 @@ qdvchealthdash_lib/
 ├── data.py                     Night dataclass, CSV parsing, time helpers
 ├── archetypes.py               Bedtime/wake bucket classification + persona lookup
 ├── analysis.py                 analyse() and all metric/aggregation helpers
-├── assets.py                   Loads + concatenates the asset files below (importlib.resources)
+├── assets.py                   Loads/concatenates assets + builds the Jinja environment
 ├── icons.py                    Maps persona names → assets/icons/*.svg + wraps them
-├── render.py                   HTML template (f-string) + asset wiring + JSON script tags
-└── assets/                     Front-end sources, inlined at generate time
+├── render.py                   Builds the template context + renders via Jinja
+└── assets/                     Front-end sources, inlined/rendered at generate time
     ├── css/                    Stylesheet split into components (see assets._CSS_FILES for order)
     ├── js/                     Page script split into components (see assets._JS_FILES for order)
+    ├── templates/              Jinja HTML templates (page + reference-table partial)
     └── icons/                  Nine persona SVGs (currentColor silhouettes), one file each
 README.md                       User-facing cover page
 MAINTENANCE.md                  This file
@@ -171,20 +180,27 @@ renderer. Notable helpers:
 The returned dict also carries `tod_anchors` (for the JS palette) and `table7`
 (the per‑night persona table, newest first, with precomputed colours).
 
-### assets.py — front-end asset loader
-The page's CSS, JS, and persona SVGs live as files under `assets/` (see §2), not
-embedded in Python. `assets.py` reads them at generate time via
-`importlib.resources` (so it works in place or installed) and caches the results.
-The CSS and JS are each **split into component files** (`assets/css/*.css`,
-`assets/js/*.js`); `load_css()` / `load_js()` concatenate their components in the
-fixed order given by the `_CSS_FILES` / `_JS_FILES` manifests and return one blob
-each. CSS order follows the cascade (tokens first); JS order follows dependencies
-(shared scope, so `data.js` and `helpers.js` come before the features that use
-them). `load_css()`'s blob still contains the `__FONT_STACK__` placeholder;
-`load_js()`'s is fully static. `load_icon_inner(slug)` returns just the inner
-markup of an icon file (stripping the outer `<svg>` wrapper) so callers can
-re-wrap it with a chosen CSS class. Nothing here is fetched at runtime by the
-generated page — it's all inlined, preserving the offline guarantee.
+### assets.py — front-end asset loader + Jinja environment
+The page's CSS, JS, persona SVGs, and HTML templates live as files under
+`assets/` (see §2), not embedded in Python. `assets.py` reads them at generate
+time via `importlib.resources` (so it works in place or installed) and caches the
+results. The CSS and JS are each **split into component files**
+(`assets/css/*.css`, `assets/js/*.js`); `load_css()` / `load_js()` concatenate
+their components in the fixed order given by the `_CSS_FILES` / `_JS_FILES`
+manifests and return one blob each. CSS order follows the cascade (tokens first);
+JS order follows dependencies (shared scope, so `data.js` and `helpers.js` come
+before the features that use them). `load_css()`'s blob still contains the
+`__FONT_STACK__` placeholder; `load_js()`'s is fully static. `load_icon_inner(slug)`
+returns just the inner markup of an icon file (stripping the outer `<svg>`
+wrapper) so callers can re-wrap it with a chosen CSS class.
+
+`assets.py` also owns the **Jinja environment** (`_jinja_env`, cached;
+`get_template(name)` fetches a compiled template). Templates load through a
+`FunctionLoader` backed by the same `importlib.resources` reader, so no
+filesystem paths are assumed. **Autoescaping is on** — see §8. `trim_blocks` and
+`lstrip_blocks` are enabled so `{% … %}` control lines don't inject blank lines.
+Nothing here is fetched at runtime by the generated page — it's all inlined,
+preserving the offline guarantee.
 
 ### icons.py — persona illustrations
 `persona_icon_svg(name, cls)` maps a persona name to its file
@@ -199,18 +215,18 @@ by dropping a `<slug>.svg` into `assets/icons/` (no Python change needed as long
 as the persona name maps to that slug).
 
 ### render.py — the page
-Holds the HTML document skeleton as one f‑string with `{styles}` and `{scripts}`
-slots; `render_html()` loads the concatenated CSS/JS from `assets.py`, fills the
-CSS's `__FONT_STACK__` placeholder, and drops both into those slots. The page's
-JSON data is **not** interpolated into the JS; instead `render_html` emits two
-`<script type="application/json">` blocks (ids `dashboard-data` and
-`persona-cards`) just before the main script, and the JS reads them with
-`JSON.parse(...)` (see §8a). The JSON is escaped for safe embedding by
-`_json_for_script()` (`<`, `>`, `&` → `\uXXXX`). Only the HTML body remains an
-f‑string (see §8 for the brace gotcha — it doesn't apply to the CSS/JS, which are
-plain files). `_reference_table_html()` builds the static persona grid;
-`_persona_cards()` builds the JSON the modal reads; `render_html()` assembles
-everything.
+Builds the Jinja **context** and renders `templates/page.html.jinja`. It loads
+the concatenated CSS/JS from `assets.py` (filling the CSS's `__FONT_STACK__`),
+renders the reference-grid partial, formats the overview values, and passes them
+all in. The template does the layout; Python does the data prep. The page's JSON
+data is **not** interpolated into the JS; instead two `<script
+type="application/json">` blocks (ids `dashboard-data`, `persona-cards`) carry it
+and the JS reads them with `JSON.parse(...)` (see §8a). Helpers:
+`_reference_grid()` returns structured data for the reference-table partial (rows
+× cells with pre-blended colours and persona SVGs); `_persona_cards()` builds the
+JSON the modal reads; `_warn_html()` builds the optional data-notes block;
+`_json_for_script()` escapes JSON for safe `<script>` embedding (`<`, `>`, `&`
+→ `\uXXXX`).
 
 ---
 
@@ -314,41 +330,50 @@ palette literal.
 
 ---
 
-## 8. render.py f‑string gotcha (the #1 way to break the build)
+## 8. HTML templates (Jinja2) and autoescaping
 
-**Scope note:** the CSS and JS live as plain files under `assets/css/` and
-`assets/js/` (concatenated by `assets.py`), so they use **ordinary single
-braces** — edit them like any normal CSS/JS. The gotcha below applies **only to
-the HTML body that remains inside the f‑string in `render.py`**.
+The page markup lives in Jinja templates under `assets/templates/`:
+`page.html.jinja` (the whole document) and `reference_table.html.jinja` (the
+composite grid partial). `render.py` builds a context dict and calls
+`assets.get_template(name).render(context)`.
 
-The HTML skeleton in `render.py` is still a single Python f‑string. Therefore,
-within that string:
+**Autoescaping is ON** (`assets._jinja_env` uses `select_autoescape` with
+`default=True`). This is the main reason to prefer Jinja here: every plain data
+value in a `{{ … }}` expression is HTML‑escaped automatically, so a stray `<` or
+`&` in a filename, warning, or config string can't inject markup. You therefore
+almost never call `html.escape` yourself in templates.
 
-- **Every literal brace must be doubled**: `{` → `{{` and `}` → `}}`. A single
-  unescaped brace either throws at generate time or, worse, silently interpolates
-  a stray Python name. (In practice the HTML body has very few literal braces.)
-- **Real interpolations use single braces**: `{styles}`, `{scripts}`,
-  `{reference_table}`, `{warn_html}`, `{score}`, `{a['avg_bed']}`,
-  `{data_json}`, `{persona_cards_json}`, etc. Anything substituted from Python is
-  single‑braced.
-- The `{styles}` and `{scripts}` slots receive the loaded asset text (the CSS
-  with its `__FONT_STACK__` already filled). Because that text is injected
-  *after* f‑string evaluation, its braces are **not** subject to the doubling
-  rule — another reason the CSS/JS files stay brace‑clean.
+The flip side: the few fragments that are **already trusted HTML** must be marked
+`| safe`, or they'd be double‑escaped and show as literal tags. These are:
 
-The one remaining asset placeholder, `__FONT_STACK__` in the CSS, is filled by a
-plain `str.replace` in `render_html`. If you add a new Python→CSS value, invent a
-new such `__UPPER_SNAKE__` token and fill it there; don't reintroduce f‑string
-interpolation into the asset files. (The JS needs no such tokens — see §8a.)
+- `{{ styles | safe }}` and `{{ scripts | safe }}` — the inlined CSS/JS blobs.
+- `{{ reference_table | safe }}` — the pre-rendered grid partial.
+- `{{ warn_html | safe }}` — the data-notes block built by `_warn_html`
+  (whose *contents* are `html.escape`d in Python, since they echo input).
+- `cell.icon | safe`, `cell.style | safe`, `row.style | safe`, `end.style | safe`
+  in the reference partial — persona SVG markup and `style=` attribute strings.
+- `{{ data_json | safe }}` / `{{ persona_cards_json | safe }}` — see §8a. These
+  **must** be `| safe`: autoescaping would turn the `<` in the embedded SVG into
+  `&lt;`, corrupting the JSON. `_json_for_script` has already made them safe to
+  embed (it escapes `<`/`>`/`&` to `\uXXXX`, which is valid JSON).
 
-After editing `render.py` **or** an asset file, **always** regenerate and run the
-JS through a syntax check (see §9). `node --check` on the inlined script catches
-both a stray brace in the HTML body and a plain syntax slip in the JS components.
+Rule of thumb: **new dynamic text → just `{{ value }}`** (autoescaped, safe by
+default). **New trusted-HTML fragment → build it in Python and mark `| safe`**,
+and make sure any user/input-derived substring inside it was escaped when built.
+
+Whitespace: the environment sets `trim_blocks` + `lstrip_blocks`, and the
+reference partial uses `{%- -%}` trimming so the grid markup has no inter-element
+gaps. If you add loops, mind the whitespace the same way.
+
+After editing a template **or** an asset file, **always** regenerate and run the
+inlined JS through `node --check` (see §9); also eyeball the page, since a
+mis-marked `| safe` (or a missing one) shows up as either escaped-looking tags or
+broken markup.
 
 ## 8a. Data hand-off: JSON script tags (not JS interpolation)
 
 The page's data reaches the JS through two `<script type="application/json">`
-blocks that `render_html` emits before the main `<script>`:
+blocks that `page.html.jinja` emits before the main `<script>`:
 `id="dashboard-data"` (the `analyse()` dict) and `id="persona-cards"` (the modal
 payload). `assets/js/data.js` reads them with
 `JSON.parse(document.getElementById(...).textContent)`. This keeps the JS fully
@@ -421,6 +446,10 @@ the ladder (benchmarks) and across the two thresholds.
   viewBox and currentColor‑only rule. No Python change if the name→slug holds.
 - **Restyle the page** → edit the relevant file in `assets/css/` (plain CSS,
   single braces). New component: add the file and list it in `_CSS_FILES`.
+- **Change page structure / markup** → edit `assets/templates/page.html.jinja`
+  (or `reference_table.html.jinja`). Plain text goes in as `{{ value }}`
+  (autoescaped); trusted-HTML fragments need `| safe` — see §8. Pass any new
+  value through the context dict in `render.render_html`.
 - **Change chart/UI behaviour** → edit the relevant file in `assets/js/` (plain
   JS, single braces). New component: add the file and list it in `_JS_FILES` in
   dependency order. The data is already available as the globals `A` and
@@ -442,17 +471,19 @@ the ladder (benchmarks) and across the two thresholds.
   display.
 - The time‑of‑day palette is **literal hex**, defined once in `_TOD_ANCHORS`,
   mirrored to JS via the payload — never themed, never a CSS var.
-- The `render.py` HTML body is an f‑string: **double literal braces there**. The
-  CSS/JS under `assets/css/` and `assets/js/` are plain files (single braces),
-  concatenated in `_CSS_FILES` / `_JS_FILES` order. The CSS's `__FONT_STACK__` is
-  the only asset placeholder; the JS gets its data from the JSON script tags.
+- Page markup is **Jinja templates** under `assets/templates/`; **autoescaping
+  is on**, so `{{ value }}` is safe by default and trusted-HTML fragments need
+  `| safe` (see §8). The CSS/JS under `assets/css/` and `assets/js/` are plain
+  files concatenated in `_CSS_FILES` / `_JS_FILES` order; the CSS's
+  `__FONT_STACK__` is the only asset placeholder.
 - Data reaches the JS via `<script type="application/json">` tags (ids
-  `dashboard-data`, `persona-cards`), escaped by `_json_for_script`; the JS
-  `JSON.parse`s them. Don't inline data as a JS literal.
+  `dashboard-data`, `persona-cards`), escaped by `_json_for_script` and marked
+  `| safe`; the JS `JSON.parse`s them. Don't inline data as a JS literal.
 - Persona icons are **`currentColor` only**, `0 0 100 100` viewBox, one `.svg`
   per persona under `assets/icons/`.
 - The `analyse()` return dict must stay **JSON‑serialisable** (it is `json.dumps`‑ed
   straight into the page).
 - Scope any new tab group's JS by container id.
 - Internal benchmark codes (A–E) and TAT are **never shown to the user**.
-- Standard library only — do not add third‑party runtime dependencies.
+- **Jinja2 is the one third‑party runtime dependency** (in `requirements.txt`).
+  Don't add others without good reason; everything else is standard library.

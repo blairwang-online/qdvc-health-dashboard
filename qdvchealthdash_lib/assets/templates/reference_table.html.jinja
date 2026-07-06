@@ -1,0 +1,18 @@
+{#- Composite-archetype reference grid. Rows are begin buckets, columns end
+    buckets; each cell blends the two spectrum colours. The `grid` context value
+    is built by render._reference_grid(); trusted HTML (pill styles, persona
+    SVGs) is marked |safe, everything else is autoescaped. Whitespace is trimmed
+    throughout so the emitted markup has no inter-element gaps. -#}
+<table class="reference"><thead><tr><th class="ref-corner"></th>
+{%- for end in grid.end_heads -%}
+<th class="ref-endhead"><span class="ref-tag" style="{{ end.style | safe }}">{{ end.label }}</span><span class="ref-sub">{{ end.sub }}</span></th>
+{%- endfor -%}
+</tr></thead><tbody>
+{%- for row in grid.rows -%}
+<tr><th class="ref-rowhead"><span class="ref-tag ref-tag-begin" style="{{ row.style | safe }}">{{ row.label }}</span><span class="ref-sub">{{ row.sub }}</span></th>
+{%- for cell in row.cells -%}
+<td class="ref-cell persona-open" role="button" tabindex="0" data-bi="{{ cell.bi }}" data-ei="{{ cell.ei }}" style="{{ cell.style | safe }}">{{ cell.icon | safe }}<span class="ref-name">{{ cell.name }}</span><span class="ref-hours">{{ cell.hours }}</span><span class="ref-blurb">{{ cell.blurb }}</span></td>
+{%- endfor -%}
+</tr>
+{%- endfor -%}
+</tbody></table>

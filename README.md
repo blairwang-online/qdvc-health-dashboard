@@ -28,6 +28,20 @@ extending or modifying the dashboard.
 - A cohesive **time‑of‑day colour scheme**, **light/dark mode** (auto by hour),
   and a right‑hand navigation sidebar.
 
+## Setup
+
+The generator needs Python 3.9+ and one third‑party package (Jinja2, used to
+render the HTML templates). Install it into a virtual environment:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+The *generated* dashboard is still a single self‑contained HTML file with no
+runtime dependencies — Jinja is only used while producing it.
+
 ## Quick start
 
 ```bash
@@ -61,5 +75,6 @@ Missing nights are fine — just leave the row out; gaps are handled gracefully.
 
 ## Requirements
 
-Python 3.10+ (standard library only). The generated HTML has no runtime
-dependencies. Not medical advice — it's a personal insight tool.
+Python 3.10+ and Jinja2 (see [Setup](#setup) — `pip install -r requirements.txt`).
+The *generated* HTML has no runtime dependencies and works fully offline. Not
+medical advice — it's a personal insight tool.
