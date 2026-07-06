@@ -423,6 +423,14 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   }}
   @media (max-width:720px) {{ .chart-duo {{ grid-template-columns:1fr; gap:22px; }} }}
 
+  /* Bedtime-punctuality subsection */
+  .subsection {{ margin-top:34px; padding-top:26px; border-top:1px solid var(--line); }}
+  .subhead {{ font-size:19px; font-weight:600; margin:0 0 4px; }}
+  .punct-legend {{ display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:14px; }}
+  .punct-legend-item {{ display:flex; align-items:center; gap:8px;
+    font-size:12.5px; color:var(--body-2); font-family:ui-monospace,monospace; }}
+  .punct-swatch {{ width:14px; height:3px; border-radius:2px; display:inline-block; }}
+
   /* Decision support */
   .ds-ambition {{ margin:4px auto 24px; max-width:420px; text-align:center; }}
   .ds-ambition label {{
@@ -634,7 +642,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
     <h2>Sleep timing &amp; trend</h2>
     <p class="cap">Hours slept on the left; the same data as actual clock time on
       the right. Switch between recent nights, weekly, and monthly aggregates.</p>
-    <div class="tabs" role="tablist">
+    <div class="tabs" id="timingTabs" role="tablist">
       <button class="tab active" role="tab" data-view="last7">Last 7 days</button>
       <button class="tab" role="tab" data-view="means">Weekly Means</button>
       <button class="tab" role="tab" data-view="medians">Weekly Medians</button>
@@ -650,6 +658,21 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
       <div class="chart-block">
         <div class="chart-title" id="clockTitle">When you slept (clock time)</div>
         <div id="clock"></div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subhead">Bedtime punctuality</h3>
+      <p class="cap">How often you were in bed by each target time, benchmarked
+        around your typical bedtime. Each line is a target; higher is better.</p>
+      <div class="tabs" id="punctTabs" role="tablist">
+        <button class="tab ptab active" role="tab" data-pview="weekly">Weekly</button>
+        <button class="tab ptab" role="tab" data-pview="monthly">Monthly</button>
+      </div>
+      <div class="chart-block">
+        <div class="chart-title" id="punctTitle">Weekly success rate</div>
+        <div id="punct"></div>
+        <div class="punct-legend" id="punctLegend"></div>
       </div>
     </div>
   </section>
@@ -861,6 +884,8 @@ function todHexFromNoon(minsSinceNoon){{
 }}
 
 // Normalise the active tab into a common item shape.
+// Items are returned newest-first (most recent at the top of each chart, to
+// match the "past 7 days" archetype table).
 function buildView(view){{
   if(view==='last7'){{
     const s=A.series.slice(-7);
@@ -869,7 +894,7 @@ function buildView(view){{
       items:s.map(d=>({{
         dow:d.dow, dm:d.dm, duration:d.duration, rolling:d.rolling,
         bed_min:d.bed_min, wake_min:d.wake_min, bed:d.bed, wake:d.wake
-      }}))
+      }})).reverse()
     }};
   }}
   const stat = (view==='means' || view==='mmeans') ? 'mean' : 'med';
@@ -882,7 +907,7 @@ function buildView(view){{
       dow:w.dow, dm:w.dm, duration:w[agg.d], rolling:null,
       bed_min:w[agg.b], wake_min:w[agg.w], bed:w[agg.bc], wake:w[agg.wc],
       nights:w.nights
-    }}))
+    }})).reverse()
   }};
 }}
 
@@ -891,7 +916,7 @@ function renderDuration(v){{
   const s=v.items, host=document.getElementById('trend');
   host.innerHTML='';
   if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
-  const rowH=Math.max(26, Math.min(40, 300/s.length));
+  const rowH=Math.max(39, Math.min(60, 450/s.length));
   const mL=104, mR=18, mT=10, mB=30;
   const H=mT+mB+rowH*s.length, W=480, iw=W-mL-mR, ih=H-mT-mB;
   const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
@@ -934,7 +959,7 @@ function renderClock(v){{
   const s=v.items, host=document.getElementById('clock');
   host.innerHTML='';
   if(!s.length){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
-  const rowH=Math.max(26, Math.min(40, 300/s.length));
+  const rowH=Math.max(39, Math.min(60, 450/s.length));
   const mL=104, mR=18, mT=10, mB=30;
   const H=mT+mB+rowH*s.length, W=480, iw=W-mL-mR, ih=H-mT-mB;
   const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
@@ -992,14 +1017,76 @@ function showView(view){{
   renderDuration(v);
   renderClock(v);
 }}
-document.querySelectorAll('.tab').forEach(btn=>{{
+document.querySelectorAll('#timingTabs .tab').forEach(btn=>{{
   btn.addEventListener('click',()=>{{
-    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('#timingTabs .tab').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     showView(btn.dataset.view);
   }});
 }});
 showView('last7');
+
+// ---- Bedtime punctuality (multi-series line chart) ---------------------- //
+function renderPunctuality(pview){{
+  const P = A.punctuality;
+  const rows = P[pview] || [];
+  const bms = P.benchmarks;
+  const host = document.getElementById('punct');
+  const legend = document.getElementById('punctLegend');
+  host.innerHTML=''; legend.innerHTML='';
+  document.getElementById('punctTitle').textContent =
+    (pview==='weekly' ? 'Weekly' : 'Monthly') + ' success rate';
+  if(rows.length<1){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
+
+  const W=980, H=340, mL=44, mR=140, mT=16, mB=52, iw=W-mL-mR, ih=H-mT-mB;
+  const svg=el('svg',{{viewBox:`0 0 ${{W}} ${{H}}`}});
+  const n=rows.length;
+  const x = i => mL + (n===1 ? iw/2 : (i/(n-1))*iw);
+  const y = pct => mT + ih - (pct/100)*ih;
+
+  // horizontal gridlines + y labels (0-100%)
+  for(let p=0;p<=100;p+=25){{
+    svg.appendChild(el('line',{{x1:mL,y1:y(p),x2:mL+iw,y2:y(p),
+      stroke:css('--line'),'stroke-width':1}}));
+    const t=el('text',{{x:mL-8,y:y(p)+3,'text-anchor':'end'}});
+    t.setAttribute('class','axis'); t.textContent=p+'%'; svg.appendChild(t);
+  }}
+  // x labels (skip some if crowded)
+  const step=Math.ceil(n/9);
+  rows.forEach((r,i)=>{{ if(i%step && i!==n-1) return;
+    const t=el('text',{{x:x(i),y:H-30,'text-anchor':'middle'}});
+    t.setAttribute('class','axis'); t.textContent=r.label; svg.appendChild(t);
+  }});
+
+  // Distinct ordered palette for the benchmark lines. The time-of-day palette
+  // can't be used here because all benchmarks cluster near one bedtime and would
+  // render as near-identical blues; this sequence keeps up to 5 lines separable
+  // (earliest/hardest target = cool, latest/easiest = warm).
+  const LINE_COLORS = ['#3b6fd4', '#2a9d8f', '#8a6bd1', '#e08a3c', '#c65f6f'];
+  bms.forEach((bm,bi)=>{{
+    const col = LINE_COLORS[bi % LINE_COLORS.length];
+    let path='';
+    rows.forEach((r,i)=>{{ const v=r.rates[bm.code];
+      path += (i?'L':'M') + x(i) + ' ' + y(v); }});
+    svg.appendChild(el('path',{{d:path,fill:'none',stroke:col,
+      'stroke-width':2.5,'stroke-linejoin':'round','stroke-linecap':'round',opacity:0.9}}));
+    rows.forEach((r,i)=>{{ svg.appendChild(el('circle',{{cx:x(i),cy:y(r.rates[bm.code]),
+      r:2.6,fill:col,opacity:0.9}})); }});
+    // legend row
+    const item=document.createElement('div'); item.className='punct-legend-item';
+    item.innerHTML='<span class="punct-swatch" style="background:'+col+'"></span>'+bm.label;
+    legend.appendChild(item);
+  }});
+  host.appendChild(svg);
+}}
+document.querySelectorAll('#punctTabs .ptab').forEach(btn=>{{
+  btn.addEventListener('click',()=>{{
+    document.querySelectorAll('#punctTabs .ptab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderPunctuality(btn.dataset.pview);
+  }});
+}});
+renderPunctuality('weekly');
 
 // ---- Archetype table ---------------------------------------------------- //
 (function(){{

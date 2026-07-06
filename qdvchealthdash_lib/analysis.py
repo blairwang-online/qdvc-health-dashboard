@@ -39,6 +39,78 @@ def _tat_config() -> dict:
     }
 
 
+def _bedtime_benchmarks(mean_bed_min: float) -> list[dict]:
+    """Derive up to five bedtime benchmarks from the typical (mean) bedtime.
+
+    All times are minutes-since-noon (evening bedtimes ~480-960; smaller = earlier).
+    If the typical bedtime lands exactly on a half-hour, it becomes BENCHMARK_C,
+    with B/D at -/+30 min. Otherwise the nearest half-hours below/above are B/D
+    and there is no C. A = B-30, E = D+30.
+    Returns a chronological list (earliest first) of {code, minutes, label}.
+    """
+    typ = round(mean_bed_min)
+    on_half = (typ % 30 == 0)
+    if on_half:
+        c = typ
+        b, d = c - 30, c + 30
+    else:
+        b = (typ // 30) * 30          # nearest half-hour below
+        d = b + 30                    # nearest half-hour above
+        c = None
+    a, e = b - 30, d + 30
+
+    marks = [("A", a), ("B", b)]
+    if c is not None:
+        marks.append(("C", c))
+    marks += [("D", d), ("E", e)]
+    marks.sort(key=lambda m: m[1])    # chronological (earliest bedtime first)
+    return [
+        {"code": code, "minutes": m, "label": f"In bed by {_fmt_clock_from_noon(m)}"}
+        for code, m in marks
+    ]
+
+
+def _punctuality_series(nights: list[Night], benchmarks: list[dict],
+                        grouping: str, periods_back: int = 12) -> list[dict]:
+    """For each period (week or month), the % of nights the person was in bed by
+    each benchmark (bedtime <= benchmark). 'In bed by' means the recorded start
+    time is at or earlier than the benchmark clock time."""
+    buckets: dict[tuple, list[Night]] = defaultdict(list)
+    for n in nights:
+        if grouping == "weekly":
+            iso = n.wake_date.isocalendar()
+            buckets[(iso[0], iso[1])].append(n)
+        else:
+            buckets[(n.wake_date.year, n.wake_date.month)].append(n)
+
+    out: list[dict] = []
+    for key in sorted(buckets)[-periods_back:]:
+        group = buckets[key]
+        beds = [_minutes_since_noon(n.start) for n in group]
+        n_nights = len(beds)
+        if grouping == "weekly":
+            label = dt.date.fromisocalendar(key[0], key[1], 1).strftime("%-d %b")
+        else:
+            label = dt.date(key[0], key[1], 1).strftime("%b %Y")
+        rates = {
+            bm["code"]: round(100 * sum(1 for b in beds if b <= bm["minutes"]) / n_nights)
+            for bm in benchmarks
+        }
+        out.append({"label": label, "nights": n_nights, "rates": rates})
+    return out
+
+
+def _punctuality(nights: list[Night], mean_bed_min: float) -> dict:
+    """Benchmarks plus weekly and monthly success-rate series for the
+    Bedtime-punctuality section."""
+    benchmarks = _bedtime_benchmarks(mean_bed_min)
+    return {
+        "benchmarks": benchmarks,
+        "weekly": _punctuality_series(nights, benchmarks, "weekly", 12),
+        "monthly": _punctuality_series(nights, benchmarks, "monthly", 12),
+    }
+
+
 def _agg_group_stats(group: list[Night], dow_label: str, dm_label: str,
                      key: str) -> dict:
     """Mean/median bedtime, waketime (minutes-since-noon + clock) and derived
@@ -237,6 +309,7 @@ def analyse(nights: list[Night]) -> dict:
         "series": series,
         "weekly": weekly,
         "monthly": monthly,
+        "punctuality": _punctuality(nights, statistics.mean(bed_mins)),
         "table7": table7,
         "begin_labels": [lbl for _, lbl in BEGIN_ARCHETYPES],
         "end_labels": [lbl for _, lbl in END_ARCHETYPES],
