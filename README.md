@@ -1,11 +1,14 @@
 # QDVC Sleep‑Health Dashboard
 
-Turn a simple sleep log into a single, self‑contained HTML dashboard you can open
-in any browser — no server, no build step, no internet connection required.
+A **quick and dirty, vibe-coded (QDVC)** tool that turns a simple sleep log into a single, self‑contained HTML dashboard you can open in any browser — no server, no build step, no internet connection required.
 
 Point it at a CSV of when you fell asleep and woke up, and it produces a polished
 page summarising how much you sleep, how consistent your schedule is, when you
 tend to sleep, and which "sleep persona" your nights fall into.
+
+- Vibe-coding logs in [vibe-coding/](vibe-coding/).
+- See [`MAINTENANCE.md`](MAINTENANCE.md) for the architecture and a guide to
+extending or modifying the dashboard.
 
 ## What you get
 
@@ -53,7 +56,3 @@ Missing nights are fine — just leave the row out; gaps are handled gracefully.
 Python 3.10+ (standard library only). The generated HTML has no runtime
 dependencies. Not medical advice — it's a personal insight tool.
 
-## Learn more
-
-See [`MAINTENANCE.md`](MAINTENANCE.md) for the architecture and a guide to
-extending or modifying the dashboard.
