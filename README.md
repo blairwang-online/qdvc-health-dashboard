@@ -17,8 +17,11 @@ extending or modifying the dashboard.
 - **Decision support** — a realistic, gentle wind‑down plan for tonight, with an
   ambition slider that shifts your target bedtime earlier or later.
 - **Sleep timing & trend** — horizontal bar charts of hours slept and actual
-  clock time, for the last 7 days or weekly/monthly aggregates, plus a
-  **Bedtime punctuality** chart tracking how often you hit bedtime targets.
+  clock time, for the last 7 days or weekly/monthly aggregates.
+- **Bedtime punctuality** — a line chart tracking how often you hit bedtime
+  targets, with *benchmarks* (a 30-minute ladder around your typical bedtime)
+  and *thresholds* (the fixed midnight / 3AM archetype boundaries) variants,
+  each by week or month.
 - **Archetypes & personas** — every night classified by bedtime and wake time
   into nine illustrated "sleep personas" (from *Rested Archer* to
   *Nocturnal Voltaire*), each with its own explanation and health notes.
@@ -55,4 +58,3 @@ Missing nights are fine — just leave the row out; gaps are handled gracefully.
 
 Python 3.10+ (standard library only). The generated HTML has no runtime
 dependencies. Not medical advice — it's a personal insight tool.
-

@@ -423,9 +423,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
   }}
   @media (max-width:720px) {{ .chart-duo {{ grid-template-columns:1fr; gap:22px; }} }}
 
-  /* Bedtime-punctuality subsection */
-  .subsection {{ margin-top:34px; padding-top:26px; border-top:1px solid var(--line); }}
-  .subhead {{ font-size:19px; font-weight:600; margin:0 0 4px; }}
+  /* Bedtime punctuality */
   .punct-legend {{ display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:14px; }}
   .punct-legend-item {{ display:flex; align-items:center; gap:8px;
     font-size:12.5px; color:var(--body-2); font-family:ui-monospace,monospace; }}
@@ -660,20 +658,28 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
         <div id="clock"></div>
       </div>
     </div>
+  </section>
 
-    <div class="subsection">
-      <h3 class="subhead">Bedtime punctuality</h3>
-      <p class="cap">How often you were in bed by each target time, benchmarked
-        around your typical bedtime. Each line is a target; higher is better.</p>
-      <div class="tabs" id="punctTabs" role="tablist">
-        <button class="tab ptab active" role="tab" data-pview="weekly">Weekly</button>
-        <button class="tab ptab" role="tab" data-pview="monthly">Monthly</button>
-      </div>
-      <div class="chart-block">
-        <div class="chart-title" id="punctTitle">Weekly success rate</div>
-        <div id="punct"></div>
-        <div class="punct-legend" id="punctLegend"></div>
-      </div>
+  <section id="sec-punctuality" class="panel navsection">
+    <h2>Bedtime punctuality</h2>
+    <p class="cap">How often you were in bed by each target time; higher is
+      better. The <strong>benchmarks</strong> tabs draw one line per rung of a
+      ladder of 30-minute targets centred on your typical bedtime, so you can
+      see how reliably you hit times just earlier or later than usual. The
+      <strong>thresholds</strong> tabs instead draw just two lines, for the fixed
+      bedtime-archetype boundaries (midnight and 3AM) that separate sleeping
+      early, around midnight, and super late. Each variant is available by ISO
+      week or calendar month.</p>
+    <div class="tabs" id="punctTabs" role="tablist">
+      <button class="tab ptab active" role="tab" data-pview="weekly">Weekly (benchmarks)</button>
+      <button class="tab ptab" role="tab" data-pview="weekly_thr">Weekly (thresholds)</button>
+      <button class="tab ptab" role="tab" data-pview="monthly">Monthly (benchmarks)</button>
+      <button class="tab ptab" role="tab" data-pview="monthly_thr">Monthly (thresholds)</button>
+    </div>
+    <div class="chart-block">
+      <div class="chart-title" id="punctTitle">Weekly success rate</div>
+      <div id="punct"></div>
+      <div class="punct-legend" id="punctLegend"></div>
     </div>
   </section>
 
@@ -725,6 +731,7 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
         <a href="#sec-overview"   data-target="sec-overview">Overview</a>
         <a href="#sec-decision"   data-target="sec-decision">Decision support</a>
         <a href="#sec-timing"     data-target="sec-timing">Sleep timing &amp; trend</a>
+        <a href="#sec-punctuality" data-target="sec-punctuality">Bedtime punctuality</a>
         <a href="#sec-archetypes" data-target="sec-archetypes">Archetypes &amp; personas</a>
         <a href="#sec-misc"       data-target="sec-misc">Miscellaneous</a>
         <button id="paletteOpen" class="side-nav-btn" type="button">Colour Palette</button>
@@ -1027,15 +1034,71 @@ document.querySelectorAll('#timingTabs .tab').forEach(btn=>{{
 showView('last7');
 
 // ---- Bedtime punctuality (multi-series line chart) ---------------------- //
+// Punctuality target colours are derived from the time-of-day palette so each
+// line's hue matches the clock time it represents. Because every target clusters
+// near one bedtime, the raw palette samples would be near-identical blues, so we
+// apply a UNIFORM saturation/luminosity adjustment (same shift for every line):
+// the hue is preserved, saturation is boosted and lightness pinned to a mid
+// value that reads on both the light and dark themes. See MAINTENANCE.md §5.
+const PUNCT_SAT_MIN = 0.55;   // floor on saturation after the uniform boost
+const PUNCT_SAT_GAIN = 1.6;   // uniform saturation multiplier
+const PUNCT_LIGHT = 0.52;     // uniform target lightness (visible on light+dark)
+function _rgbToHsl(r,g,b){{
+  r/=255; g/=255; b/=255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  let h=0; const l=(mx+mn)/2;
+  const s=d===0?0:d/(1-Math.abs(2*l-1));
+  if(d!==0){{
+    if(mx===r) h=((g-b)/d)%6;
+    else if(mx===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60; if(h<0) h+=360;
+  }}
+  return [h,s,l];
+}}
+function _hslToHex(h,s,l){{
+  const c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2;
+  let r=0,g=0,b=0;
+  if(h<60){{r=c;g=x;}} else if(h<120){{r=x;g=c;}} else if(h<180){{g=c;b=x;}}
+  else if(h<240){{g=x;b=c;}} else if(h<300){{r=x;b=c;}} else {{r=c;b=x;}}
+  const to=v=>Math.round((v+m)*255).toString(16).padStart(2,'0');
+  return '#'+to(r)+to(g)+to(b);
+}}
+// Take a time-of-day colour (as minutes-since-noon), keep its hue, and apply the
+// uniform saturation/luminosity adjustment shared by every punctuality line.
+function punctColor(minsSinceNoon){{
+  const [r,g,b]=todRgb(((Math.round(minsSinceNoon)+720)%1440+1440)%1440);
+  const [h,s]=_rgbToHsl(r,g,b);
+  const s2=Math.min(1, Math.max(PUNCT_SAT_MIN, s*PUNCT_SAT_GAIN));
+  return _hslToHex(h, s2, PUNCT_LIGHT);
+}}
+// Smooth an SVG polyline through the given points with a Catmull-Rom spline
+// (converted to cubic Béziers), for gently curved series lines.
+function smoothPath(pts){{
+  if(pts.length<2) return pts.length?('M'+pts[0][0]+' '+pts[0][1]):'';
+  let d='M'+pts[0][0]+' '+pts[0][1];
+  for(let i=0;i<pts.length-1;i++){{
+    const p0=pts[i>0?i-1:i], p1=pts[i], p2=pts[i+1], p3=pts[i+2<pts.length?i+2:i+1];
+    const c1x=p1[0]+(p2[0]-p0[0])/6, c1y=p1[1]+(p2[1]-p0[1])/6;
+    const c2x=p2[0]-(p3[0]-p1[0])/6, c2y=p2[1]-(p3[1]-p1[1])/6;
+    d+='C'+c1x+' '+c1y+' '+c2x+' '+c2y+' '+p2[0]+' '+p2[1];
+  }}
+  return d;
+}}
 function renderPunctuality(pview){{
   const P = A.punctuality;
-  const rows = P[pview] || [];
-  const bms = P.benchmarks;
+  const isThr = pview.indexOf('_thr') !== -1;
+  const isMonthly = pview.indexOf('monthly') === 0;
+  const rows = (isThr
+      ? (isMonthly ? P.monthly_thr : P.weekly_thr)
+      : (isMonthly ? P.monthly : P.weekly)) || [];
+  const marks = isThr ? P.thresholds : P.benchmarks;
   const host = document.getElementById('punct');
   const legend = document.getElementById('punctLegend');
   host.innerHTML=''; legend.innerHTML='';
   document.getElementById('punctTitle').textContent =
-    (pview==='weekly' ? 'Weekly' : 'Monthly') + ' success rate';
+    (isMonthly ? 'Monthly' : 'Weekly') + ' success rate — '
+    + (isThr ? 'archetype thresholds' : 'benchmarks');
   if(rows.length<1){{ host.innerHTML='<p class="axis">No data.</p>'; return; }}
 
   const W=980, H=340, mL=44, mR=140, mT=16, mB=52, iw=W-mL-mR, ih=H-mT-mB;
@@ -1058,19 +1121,12 @@ function renderPunctuality(pview){{
     t.setAttribute('class','axis'); t.textContent=r.label; svg.appendChild(t);
   }});
 
-  // Distinct ordered palette for the benchmark lines. The time-of-day palette
-  // can't be used here because all benchmarks cluster near one bedtime and would
-  // render as near-identical blues; this sequence keeps up to 5 lines separable
-  // (earliest/hardest target = cool, latest/easiest = warm).
-  const LINE_COLORS = ['#3b6fd4', '#2a9d8f', '#8a6bd1', '#e08a3c', '#c65f6f'];
-  bms.forEach((bm,bi)=>{{
-    const col = LINE_COLORS[bi % LINE_COLORS.length];
-    let path='';
-    rows.forEach((r,i)=>{{ const v=r.rates[bm.code];
-      path += (i?'L':'M') + x(i) + ' ' + y(v); }});
-    svg.appendChild(el('path',{{d:path,fill:'none',stroke:col,
+  marks.forEach((bm)=>{{
+    const col = punctColor(bm.minutes);
+    const pts = rows.map((r,i)=>[x(i), y(r.rates[bm.code])]);
+    svg.appendChild(el('path',{{d:smoothPath(pts),fill:'none',stroke:col,
       'stroke-width':2.5,'stroke-linejoin':'round','stroke-linecap':'round',opacity:0.9}}));
-    rows.forEach((r,i)=>{{ svg.appendChild(el('circle',{{cx:x(i),cy:y(r.rates[bm.code]),
+    pts.forEach(pt=>{{ svg.appendChild(el('circle',{{cx:pt[0],cy:pt[1],
       r:2.6,fill:col,opacity:0.9}})); }});
     // legend row
     const item=document.createElement('div'); item.className='punct-legend-item';

@@ -39,6 +39,28 @@ def _tat_config() -> dict:
     }
 
 
+def _bedtime_thresholds() -> list[dict]:
+    """The bedtime-archetype boundaries as punctuality targets.
+
+    Unlike the benchmark ladder (which floats around the typical bedtime in
+    30-minute steps), these are the fixed archetype thresholds from
+    ``BEGIN_ARCHETYPES`` — the bounds that separate "sleeps early" / "around
+    midnight" / "super late". Only the finite bounds are used (the last bucket
+    is open-ended), giving the midnight and 3AM lines. All times are
+    minutes-since-noon. Returns a chronological list of {code, minutes, label}.
+    """
+    marks: list[tuple[str, int]] = []
+    for i, (bound, _label) in enumerate(BEGIN_ARCHETYPES):
+        if bound is None:
+            continue
+        marks.append((f"T{i}", _clock_to_since_noon(bound)))
+    marks.sort(key=lambda m: m[1])    # chronological (earliest bedtime first)
+    return [
+        {"code": code, "minutes": m, "label": f"In bed by {_fmt_clock_from_noon(m)}"}
+        for code, m in marks
+    ]
+
+
 def _bedtime_benchmarks(mean_bed_min: float) -> list[dict]:
     """Derive up to five bedtime benchmarks from the typical (mean) bedtime.
 
@@ -102,12 +124,23 @@ def _punctuality_series(nights: list[Night], benchmarks: list[dict],
 
 def _punctuality(nights: list[Night], mean_bed_min: float) -> dict:
     """Benchmarks plus weekly and monthly success-rate series for the
-    Bedtime-punctuality section."""
+    Bedtime-punctuality section.
+
+    Two families of target lines are produced:
+      * ``benchmarks`` — the floating 30-minute ladder around the typical
+        bedtime, with its own weekly/monthly rate series.
+      * ``thresholds`` — the fixed bedtime-archetype boundaries (midnight, 3AM),
+        with a separate weekly/monthly rate series.
+    """
     benchmarks = _bedtime_benchmarks(mean_bed_min)
+    thresholds = _bedtime_thresholds()
     return {
         "benchmarks": benchmarks,
+        "thresholds": thresholds,
         "weekly": _punctuality_series(nights, benchmarks, "weekly", 12),
         "monthly": _punctuality_series(nights, benchmarks, "monthly", 12),
+        "weekly_thr": _punctuality_series(nights, thresholds, "weekly", 12),
+        "monthly_thr": _punctuality_series(nights, thresholds, "monthly", 12),
     }
 
 

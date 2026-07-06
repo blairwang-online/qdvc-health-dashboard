@@ -140,6 +140,7 @@ renderer. Notable helpers:
   ISO weeks / 12 calendar months, each with mean & median bedtime, waketime,
   duration (both as minutes‑since‑noon and formatted strings).
 - `_bedtime_benchmarks(mean_bed_min)` — the punctuality benchmark ladder (§5).
+- `_bedtime_thresholds()` — the fixed archetype-boundary punctuality lines (§5).
 - `_punctuality_series` / `_punctuality` — per‑period success rates (§5).
 - `_tat_config` — exports Decision‑support constants to JS (§6).
 The returned dict also carries `tod_anchors` (for the JS palette) and `table7`
@@ -161,8 +162,16 @@ builds the JSON the modal reads; `render_html()` assembles everything.
 
 ---
 
-## 5. Bedtime punctuality (benchmarks)
+## 5. Bedtime punctuality (benchmarks and thresholds)
 
+Bedtime punctuality is its **own top-level section** (`#sec-punctuality`, in the
+sidebar nav), rendered by `renderPunctuality(pview)` in render.py. It has two
+families of target lines, each available by ISO week or calendar month, giving
+four tabs: **Weekly (benchmarks)**, **Weekly (thresholds)**,
+**Monthly (benchmarks)**, **Monthly (thresholds)**. The `data-pview` values are
+`weekly` / `weekly_thr` / `monthly` / `monthly_thr`.
+
+### Benchmarks
 The benchmark ladder is derived from **the typical (mean) bedtime**, which is the
 same value shown as "Typical bedtime" in the overview (`analysis` computes it as
 `statistics.mean(bed_mins)` in minutes‑since‑noon).
@@ -178,16 +187,35 @@ It returns a chronological list of `{code, minutes, label}`, where `label` is th
 **user‑facing** string (`"In bed by 01:00"`). The internal `code` (A–E) is never
 shown to the user.
 
-`_punctuality_series(nights, benchmarks, grouping)` groups nights by ISO week or
-calendar month and, for each benchmark, computes the percentage of that period's
-nights with `bed_min <= benchmark.minutes` ("in bed by"). Because later
-benchmarks are strictly easier, their lines should always sit at or above earlier
-ones — a useful sanity check.
+### Thresholds
+`_bedtime_thresholds()` returns the **fixed bedtime-archetype boundaries** from
+`BEGIN_ARCHETYPES` (the finite upper bounds — currently midnight and 3AM; the
+open-ended last bucket contributes none). These give exactly **two** target lines
+regardless of the user's habits. Same `{code, minutes, label}` shape (codes
+`T0`/`T1`), so they flow through the identical series/render path as benchmarks.
 
-The chart is rendered by `renderPunctuality(pview)` in render.py (a multi‑series
-line chart). Benchmark lines use a **fixed distinct palette** (`LINE_COLORS`),
-*not* the time‑of‑day palette: all benchmarks cluster within ±60 min of one
-bedtime, so time‑of‑day colours would render as near‑identical blues.
+### Series and chart
+`_punctuality_series(nights, marks, grouping)` groups nights by ISO week or
+calendar month and, for each mark, computes the percentage of that period's
+nights with `bed_min <= mark.minutes` ("in bed by"). Because later marks are
+strictly easier, their lines should always sit at or above earlier ones — a
+useful sanity check that holds for both benchmarks and thresholds. `_punctuality`
+runs it for all four (benchmarks/thresholds × weekly/monthly) and packs them into
+the payload as `weekly` / `monthly` / `weekly_thr` / `monthly_thr` alongside the
+`benchmarks` and `thresholds` mark lists.
+
+### Line colours (derived from the time-of-day palette)
+Series lines are coloured from the **time-of-day palette**, sampled at each
+target's clock time, so a line's hue matches the time it represents (midnight
+lines blue, 3AM lines purple, etc.). Because every target clusters near one
+bedtime, the raw samples would be near-identical, so `punctColor()` in the JS
+keeps each sample's **hue** but applies a **uniform** saturation/luminosity
+adjustment across all lines (constants `PUNCT_SAT_MIN`, `PUNCT_SAT_GAIN`,
+`PUNCT_LIGHT`): saturation is boosted and lightness pinned to a mid value chosen
+to read on **both** the light and dark themes. The lines are smoothed with a
+Catmull-Rom spline (`smoothPath()`). This still respects the §7 invariant — the
+colours derive from the literal-hex palette (via `todRgb`), never from a themed
+CSS variable, so they don't shift between themes.
 
 ---
 
@@ -246,9 +274,10 @@ check (see §9). A stray brace is the most common failure and the check catches 
 immediately.
 
 Related: multiple tab bars exist (timing tabs `#timingTabs`, punctuality tabs
-`#punctTabs`). Tab wiring is **scoped by container id** so the two bars don't
-interfere. If you add another tab group, scope its click handler the same way —
-never bind on a bare `.tab` selector.
+`#punctTabs` — the latter now has four tabs: benchmarks/thresholds × weekly/
+monthly, keyed by `data-pview`). Tab wiring is **scoped by container id** so the
+bars don't interfere. If you add another tab group, scope its click handler the
+same way — never bind on a bare `.tab` selector.
 
 ---
 
@@ -278,8 +307,8 @@ Also verify the **edge cases** that have bitten past changes:
 - Any new interactive control works from a fresh page load and after theme flips.
 
 Handy invariants to assert: `len(COMPOSITE_*)==3` and each row length 3; nine
-entries in `icons._ICON_INNER`; punctuality benchmark rates are monotonic across
-the ladder.
+entries in `icons._ICON_INNER`; punctuality rates are monotonic across the ladder
+(benchmarks) and across the two thresholds.
 
 ---
 
