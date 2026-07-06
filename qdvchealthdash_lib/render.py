@@ -1037,15 +1037,16 @@ showView('last7');
 // Punctuality target colours are derived from the time-of-day palette so each
 // line's hue matches the clock time it represents. Because every target clusters
 // near one bedtime, the raw palette samples would be near-identical blues, so we
-// keep each sample's HUE but override saturation/lightness. Saturation gets a
-// uniform boost; lightness is spread evenly across the ladder (earliest/hardest
-// target darkest, latest/easiest lightest) so adjacent same-hue lines separate.
-// The whole lightness range stays mid-toned so every line reads on both the
-// light and dark themes. See MAINTENANCE.md §5.
-const PUNCT_SAT_MIN = 0.55;   // floor on saturation after the uniform boost
-const PUNCT_SAT_GAIN = 1.6;   // uniform saturation multiplier
-const PUNCT_LIGHT_LO = 0.40;  // lightness of the earliest/hardest target
-const PUNCT_LIGHT_HI = 0.66;  // lightness of the latest/easiest target
+// keep each sample's HUE but override saturation/lightness. Both are spread
+// across the ladder by the line's position: the earliest/hardest target is
+// darkest and most saturated, the latest/easiest is lightest and softest, so
+// adjacent same-hue lines separate strongly. The ranges are bounded so every
+// line still reads on both the light and dark themes. See MAINTENANCE.md §5.
+const PUNCT_SAT_LO = 0.95;    // saturation of the latest/easiest target (softer)
+const PUNCT_SAT_HI = 1.0;     // saturation of the earliest/hardest target (intense)
+const PUNCT_SAT_FLOOR = 0.45; // never desaturate a sample below this
+const PUNCT_LIGHT_LO = 0.30;  // lightness of the earliest/hardest target (darkest)
+const PUNCT_LIGHT_HI = 0.74;  // lightness of the latest/easiest target (lightest)
 function _rgbToHsl(r,g,b){{
   r/=255; g/=255; b/=255;
   const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
@@ -1067,15 +1068,17 @@ function _hslToHex(h,s,l){{
   const to=v=>Math.round((v+m)*255).toString(16).padStart(2,'0');
   return '#'+to(r)+to(g)+to(b);
 }}
-// Take a time-of-day colour (as minutes-since-noon), keep its hue, boost
-// saturation, and pick a lightness by the line's position in the ladder: idx of
-// total (both 0-based count) maps linearly across PUNCT_LIGHT_LO..HI. A single
-// line (total<=1) sits at the midpoint.
+// Take a time-of-day colour (as minutes-since-noon), keep its hue, and pick both
+// saturation and lightness by the line's position in the ladder: idx of total
+// (0-based) maps linearly across the PUNCT_SAT_* / PUNCT_LIGHT_* ranges
+// (position 0 = darkest+most saturated). A single line (total<=1) sits at the
+// midpoint of both ranges.
 function punctColor(minsSinceNoon, idx, total){{
   const [r,g,b]=todRgb(((Math.round(minsSinceNoon)+720)%1440+1440)%1440);
   const [h,s]=_rgbToHsl(r,g,b);
-  const s2=Math.min(1, Math.max(PUNCT_SAT_MIN, s*PUNCT_SAT_GAIN));
   const f = total>1 ? idx/(total-1) : 0.5;
+  const sPos = PUNCT_SAT_HI + (PUNCT_SAT_LO - PUNCT_SAT_HI) * f;   // hi at idx 0
+  const s2 = Math.min(1, Math.max(PUNCT_SAT_FLOOR, s * sPos));
   const l = PUNCT_LIGHT_LO + (PUNCT_LIGHT_HI - PUNCT_LIGHT_LO) * f;
   return _hslToHex(h, s2, l);
 }}
