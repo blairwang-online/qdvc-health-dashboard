@@ -3,7 +3,8 @@
 Public API:
     load_nights(path) -> (nights, warnings)   read & parse the CSV
     analyse(nights)   -> dict                  compute all metrics
-    render_html(analysis, warnings, source) -> str   build the HTML page
+    render_html(analysis, warnings, source) -> str   build the desktop HTML page
+    render_mobile_html(analysis, warnings, source) -> str   build the mobile HTML page
 
 Modules:
     config      tunable labels, thresholds, composite names/blurbs, font
@@ -18,6 +19,6 @@ from __future__ import annotations
 
 from .data import Night, load_nights
 from .analysis import analyse
-from .render import render_html
+from .render import render_html, render_mobile_html
 
-__all__ = ["Night", "load_nights", "analyse", "render_html"]
+__all__ = ["Night", "load_nights", "analyse", "render_html", "render_mobile_html"]

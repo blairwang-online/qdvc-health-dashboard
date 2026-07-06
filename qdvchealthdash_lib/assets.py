@@ -47,6 +47,23 @@ _CSS_FILES = (
     "misc.css",              # warnings, footer, responsive, motion
 )
 
+# CSS components for the MOBILE output (page_mobile.html.jinja), in cascade
+# order. It reuses the shared tokens and the component styles the mobile page
+# still shows (persona cards + modal, the two chart types, decision-support
+# timeline, the reference table inside its modal, and the palette-modal shell
+# that both modals share), then adds mobile.css last so its layout wins. The
+# desktop-only chrome (sidebar, hero grid, panel/tab bars) is intentionally
+# omitted — the mobile page is a summary, not feature parity.
+_MOBILE_CSS_FILES = (
+    "tokens.css",            # :root custom properties + dark-theme overrides
+    "palette-modal.css",     # modal-overlay/.modal shell (shared by both modals)
+    "persona.css",           # persona cards, icons, persona modal
+    "charts.css",            # chart-title + punctuality legend
+    "decision-support.css",  # Targeted-Asleep-Time timeline + notes
+    "reference-table.css",   # archetype/reference tables, axes, pills
+    "mobile.css",            # mobile shell: header, sticky nav, section cards
+)
+
 # JS components, in execution order. Shared scope, so dependencies come first:
 # data -> helpers -> chart builders -> tab wiring -> self-contained features.
 _JS_FILES = (
@@ -64,6 +81,24 @@ _JS_FILES = (
     "scroll-spy.js",         # sidebar active-section highlighting
     "palette-modal.js",      # colour-palette modal behaviour
     "persona-modal.js",      # persona-card modal behaviour
+)
+
+# JS components for the MOBILE output, in execution order (shared scope, so
+# dependencies come first). Reuses the desktop data/helpers, the clock chart,
+# and the punctuality chart verbatim; the timing/punctuality tab wiring,
+# per-night list, reference modal, and sticky nav are mobile-specific
+# (mobile-glue.js), as is the slider-free decision support. persona-modal.js
+# and theme.js are shared unchanged. Omits the desktop duration chart, timing
+# tabs, histogram, weekday chart, scroll-spy, and palette modal.
+_MOBILE_JS_FILES = (
+    "data.js",                    # parse the JSON script tags; animate the arc
+    "helpers.js",                 # SVG/DOM + clock/colour helpers; buildView
+    "chart-clock.js",             # renderClock (when-you-slept chart)
+    "punctuality.js",             # renderPunctuality (benchmarks used on mobile)
+    "decision-support-mobile.js", # moderate-only wind-down plan (no slider)
+    "persona-modal.js",           # persona-card modal behaviour (shared)
+    "theme.js",                   # light/dark toggle + default-by-hour (shared)
+    "mobile-glue.js",             # nav, in-card toggles, list, reference modal
 )
 
 
@@ -105,6 +140,19 @@ def load_js() -> str:
     Fully static — it reads its data from the page's
     ``<script type="application/json">`` blocks."""
     return _concat("js", _JS_FILES)
+
+
+def load_mobile_css() -> str:
+    """The mobile stylesheet: the mobile CSS components joined in cascade order.
+    Like ``load_css()`` it contains the ``__FONT_STACK__`` placeholder for the
+    caller to fill."""
+    return _concat("css", _MOBILE_CSS_FILES)
+
+
+def load_mobile_js() -> str:
+    """The mobile page script: the mobile JS components joined in execution
+    order. Fully static (reads its data from the JSON script tags)."""
+    return _concat("js", _MOBILE_JS_FILES)
 
 
 # --------------------------------------------------------------------------- #

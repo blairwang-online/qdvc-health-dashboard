@@ -14,7 +14,7 @@ from .config import (
 from .colors import _BEGIN_BG, _END_BG, _mix_hex, _pill_style, _text_on
 from .data import _fmt_hm
 from .icons import persona_icon_svg
-from .assets import load_css, load_js, get_template
+from .assets import load_css, load_js, load_mobile_css, load_mobile_js, get_template
 
 
 def _json_for_script(obj) -> str:
@@ -159,3 +159,38 @@ def render_html(a: dict, warnings: list[str], source: str) -> str:
         "persona_cards_json": _json_for_script(_persona_cards()),
     }
     return get_template("page.html.jinja").render(context)
+
+
+def render_mobile_html(a: dict, warnings: list[str], source: str) -> str:
+    """Render the mobile companion page via ``page_mobile.html.jinja``.
+
+    The mobile page is a deliberately reduced summary (not feature parity with
+    the desktop dashboard): a compact score chip, a slider-free "moderate"
+    Decision-support plan, the when-you-slept clock chart (Last 7 / weekly /
+    monthly means), weekly/monthly bedtime-punctuality benchmarks, and the
+    past-7-nights persona list with the reference grid parked in a modal. It
+    reuses the same analysis dict, the same time-of-day palette, and the shared
+    persona-card modal, so branding stays identical to the desktop build; only
+    the CSS/JS bundles and the template differ (see assets._MOBILE_* manifests).
+    Autoescaping and the ``| safe`` rules are exactly as in ``render_html``.
+    """
+    styles = load_mobile_css().replace("__FONT_STACK__", FONT_STACK).rstrip("\n")
+    scripts = load_mobile_js().rstrip("\n")
+
+    reference_table = get_template("reference_table.html.jinja").render(
+        grid=_reference_grid()
+    )
+
+    context = {
+        "a": a,
+        "score": a["score"],
+        "verdict": _verdict(a["score"]),
+        "styles": styles,
+        "scripts": scripts,
+        "reference_table": reference_table,
+        "warn_html": _warn_html(warnings),
+        "source": source,
+        "data_json": _json_for_script(a),
+        "persona_cards_json": _json_for_script(_persona_cards()),
+    }
+    return get_template("page_mobile.html.jinja").render(context)

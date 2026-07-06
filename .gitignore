@@ -1,4 +1,5 @@
 sleep.csv
-sleep_dashboard.html
+sleep-desktop.html
+sleep-mobile.html
 __pycache__/
 .venv

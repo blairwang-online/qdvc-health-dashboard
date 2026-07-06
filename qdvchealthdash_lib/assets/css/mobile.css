@@ -1,0 +1,170 @@
+/* ===================================================================== *
+   * Mobile dashboard shell.
+   *
+   * This file styles ONLY the mobile output (page_mobile.html.jinja). It
+   * reuses the shared design tokens (tokens.css) and the persona / reference
+   * / decision-support / persona-modal styles from the desktop build, so the
+   * branding and time-of-day palette are identical; everything here is the
+   * mobile-only layout: a single scrolling column, a sticky segmented nav,
+   * and compact section cards. Desktop-only chrome (right sidebar, side-by-side
+   * chart-duo, five timing tabs, four punctuality tabs) is absent by design —
+   * the mobile page is a summary, not feature parity.
+   * ===================================================================== */
+
+  body.mobile {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:__FONT_STACK__;
+    -webkit-font-smoothing:antialiased;
+    transition:background .35s ease, color .35s ease;
+  }
+  body.mobile .mwrap { max-width:560px; margin:0 auto; padding:0 0 56px; }
+
+  /* Header ------------------------------------------------------------- */
+  .m-top {
+    padding:22px 20px 16px; display:flex; align-items:flex-start;
+    justify-content:space-between; gap:12px;
+  }
+  .m-top .eyebrow {
+    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:10.5px;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+  }
+  .m-top h1 { font-size:23px; line-height:1.15; margin:5px 0 3px; font-weight:600; }
+  .m-top .sub { color:var(--muted); font-size:12.5px; }
+
+  /* Score chip (compact hero) ------------------------------------------ */
+  .m-score {
+    display:flex; align-items:center; gap:16px; margin:0 20px 4px;
+    padding:16px 18px; background:var(--hero-grad);
+    border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow);
+  }
+  .m-gauge { position:relative; width:82px; height:82px; flex:0 0 auto; }
+  .m-gauge .val {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+  }
+  .m-gauge .num { font-size:27px; font-weight:600; line-height:1; }
+  .m-gauge .of { font-size:9.5px; color:var(--muted); margin-top:2px;
+    font-family:ui-monospace,monospace; }
+  .m-score-text .verdict { font-size:18px; font-weight:600; margin:0 0 2px; }
+  .m-score-text .breakdown {
+    display:flex; gap:14px; flex-wrap:wrap; margin-top:4px;
+    font-size:11px; color:var(--muted);
+  }
+  .m-score-text .breakdown b { display:block; font-size:15px; color:var(--ink);
+    font-weight:600; }
+
+  /* Sticky segmented nav ----------------------------------------------- */
+  .m-nav {
+    position:sticky; top:0; z-index:20; background:var(--paper);
+    padding:10px 12px; margin-top:12px;
+    border-bottom:1px solid var(--line);
+  }
+  .m-nav-track {
+    display:flex; gap:4px; overflow-x:auto; scrollbar-width:none;
+    -webkit-overflow-scrolling:touch; padding:4px;
+    background:var(--inset); border:1px solid var(--inset-border);
+    border-radius:12px;
+  }
+  .m-nav-track::-webkit-scrollbar { display:none; }
+  .m-nav-btn {
+    appearance:none; border:1px solid transparent; background:transparent;
+    cursor:pointer; font-family:ui-monospace,'SF Mono',Menlo,monospace;
+    font-size:12px; letter-spacing:.01em; color:var(--muted);
+    padding:8px 14px; border-radius:9px; white-space:nowrap; flex:0 0 auto;
+    transition:all .15s ease;
+  }
+  .m-nav-btn.active {
+    color:var(--dawn1); font-weight:600; background:var(--card);
+    border-color:var(--line);
+    box-shadow:0 1px 2px rgba(26,34,56,.08), 0 2px 6px rgba(58,74,140,.10);
+  }
+  html[data-theme="dark"] .m-nav-track { background:#10141f; }
+  html[data-theme="dark"] .m-nav-btn.active {
+    color:#dfe4ff; background:#2a3358; border-color:#3b4675;
+    box-shadow:0 1px 3px rgba(0,0,0,.5);
+  }
+
+  /* Section cards ------------------------------------------------------ */
+  .m-section {
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:20px 18px; box-shadow:var(--shadow);
+    margin:16px 12px 0; scroll-margin-top:74px;
+  }
+  .m-section > h2 { font-size:17px; margin:0 0 3px; font-weight:600; }
+  .m-section > p.cap { margin:0 0 14px; color:var(--muted); font-size:13px;
+    line-height:1.45; }
+
+  /* In-card view toggle (Last 7 / Weekly / Monthly, etc.) -------------- */
+  .m-toggle {
+    display:flex; gap:4px; margin:2px 0 16px; padding:4px;
+    background:var(--inset); border:1px solid var(--inset-border);
+    border-radius:11px;
+  }
+  .m-toggle .tab {
+    flex:1 1 0; appearance:none; border:1px solid transparent;
+    background:transparent; cursor:pointer;
+    font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:12px;
+    color:var(--muted); padding:8px 6px; border-radius:8px; text-align:center;
+    transition:all .15s ease;
+  }
+  .m-toggle .tab.active {
+    color:var(--dawn1); font-weight:600; background:var(--card);
+    border-color:var(--line);
+    box-shadow:0 1px 2px rgba(26,34,56,.08);
+  }
+  html[data-theme="dark"] .m-toggle { background:#10141f; }
+  html[data-theme="dark"] .m-toggle .tab.active {
+    color:#dfe4ff; background:#2a3358; border-color:#3b4675;
+  }
+
+  .m-chart-title {
+    font-family:ui-monospace,monospace; font-size:10.5px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:10px;
+  }
+
+  /* A button that opens the persona reference modal -------------------- */
+  .m-refbtn {
+    display:inline-flex; align-items:center; gap:8px; margin-top:16px;
+    appearance:none; cursor:pointer; font-family:__FONT_STACK__;
+    font-size:13.5px; color:var(--dawn1); font-weight:600;
+    background:var(--inset); border:1px solid var(--inset-border);
+    border-radius:10px; padding:10px 14px;
+  }
+  .m-refbtn::before {
+    content:""; display:inline-block; width:9px; height:9px; border-radius:50%;
+    background:linear-gradient(90deg,#2a3ca8,#c62f45,#f2a65a);
+  }
+  .m-refbtn:focus-visible { outline:2px solid var(--dawn2); outline-offset:2px; }
+
+  /* Compact archetype list (replaces the wide desktop table) ----------- */
+  .m-arch-list { display:flex; flex-direction:column; gap:8px; }
+  .m-arch-row {
+    display:grid; grid-template-columns:auto 1fr; gap:4px 12px;
+    align-items:center; padding:12px 14px; border:1px solid var(--line);
+    border-radius:12px; background:var(--card);
+  }
+  .m-arch-date { font-weight:600; font-size:13.5px; white-space:nowrap; }
+  .m-arch-time {
+    font-family:ui-monospace,monospace; font-size:12px; color:var(--muted);
+    text-align:right;
+  }
+  .m-arch-pills { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px;
+    margin-top:2px; }
+  .m-arch-pills .pill { font-size:12px; padding:3px 10px; }
+
+  /* Theme toggle floats in the header for the mobile layout ------------ */
+  .m-theme .theme-btn { margin-top:2px; }
+
+  /* Footer ------------------------------------------------------------- */
+  .m-foot { color:var(--muted); font-size:11.5px; margin:22px 20px 0;
+    font-family:ui-monospace,monospace; text-align:center; }
+  .m-foot .warn { text-align:left; margin-top:14px; }
+
+  /* Decision support on mobile: single column, no ambition slider ------ */
+  body.mobile .ds-body { display:block; }
+  body.mobile .ds-notes { margin-top:18px; }
+
+  /* Reference-table modal: reuse the desktop reference styles inside a
+     scrollable modal body. */
+  .m-ref-modal .modal { max-width:none; width:min(96vw,720px); }
+  .m-ref-modal .modal-body { overflow-x:auto; }

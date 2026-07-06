@@ -27,8 +27,13 @@ The pipeline is deliberately linear:
 ```
 CSV file ──load_nights──> [Night]         (parse + validate)
 [Night]  ──analyse──────> analysis dict   (all metrics, JSON-serialisable)
-analysis ──render_html──> HTML string     (Jinja render + inlined CSS/JS/SVG)
+analysis ──render_html────────> desktop HTML string   (Jinja + inlined CSS/JS/SVG)
+analysis ──render_mobile_html─> mobile  HTML string   (Jinja + inlined CSS/JS/SVG)
 ```
+
+The two renderers share one `analyse()` result; the entry point writes both
+files in a single run. The mobile page is a deliberately reduced summary (not
+feature parity) — see §12.
 
 The entry point (`sleep_dashboard.py`) does only argument parsing and wiring;
 all logic lives in the `qdvchealthdash_lib` package.
@@ -38,7 +43,7 @@ all logic lives in the `qdvchealthdash_lib` package.
 ## 2. Repository layout
 
 ```
-sleep_dashboard.py              CLI entry point (argparse → pipeline → write file)
+sleep_dashboard.py              CLI entry point (argparse → pipeline → write both files)
 requirements.txt                Runtime deps (Jinja2, MarkupSafe)
 qdvchealthdash_lib/
 ├── __init__.py                 Public API re-exports
@@ -49,11 +54,11 @@ qdvchealthdash_lib/
 ├── analysis.py                 analyse() and all metric/aggregation helpers
 ├── assets.py                   Loads/concatenates assets + builds the Jinja environment
 ├── icons.py                    Maps persona names → assets/icons/*.svg + wraps them
-├── render.py                   Builds the template context + renders via Jinja
+├── render.py                   Builds the template context + renders via Jinja (desktop + mobile)
 └── assets/                     Front-end sources, inlined/rendered at generate time
-    ├── css/                    Stylesheet split into components (see assets._CSS_FILES for order)
-    ├── js/                     Page script split into components (see assets._JS_FILES for order)
-    ├── templates/              Jinja HTML templates (page + reference-table partial)
+    ├── css/                    Stylesheet split into components (see assets._CSS_FILES / _MOBILE_CSS_FILES)
+    ├── js/                     Page script split into components (see assets._JS_FILES / _MOBILE_JS_FILES)
+    ├── templates/              Jinja HTML templates (desktop page, mobile page, reference-table partial)
     └── icons/                  Nine persona SVGs (currentColor silhouettes), one file each
 README.md                       User-facing cover page
 MAINTENANCE.md                  This file
@@ -63,7 +68,10 @@ The CSS component (`assets/css/*.css`, one placeholder `__FONT_STACK__`) is
 joined in cascade order; the JS components (`assets/js/*.js`, fully static) are
 joined in execution order. Both orders are the manifests `_CSS_FILES` /
 `_JS_FILES` in `assets.py` — to add a component, create the file and add it to
-the relevant tuple.
+the relevant tuple. The **mobile** output uses its own subset manifests
+(`_MOBILE_CSS_FILES` / `_MOBILE_JS_FILES`, loaded via `load_mobile_css()` /
+`load_mobile_js()`), which reuse most desktop components and add a few
+mobile-only ones — see §12.
 
 **Packaging note:** the files under `assets/` are package *data*. There is no
 build config today (the tool runs in place), but if you ever add a
@@ -77,7 +85,8 @@ data so it ships with an installed wheel. `assets.py` reads them through
 |---|---|---|
 | `load_nights` | `(path: str) -> (list[Night], list[str])` | Parse CSV; returns nights + warning strings |
 | `analyse` | `(nights: list[Night]) -> dict` | Compute every metric into a JSON-serialisable dict |
-| `render_html` | `(analysis: dict, warnings: list[str], source: str) -> str` | Build the full HTML page |
+| `render_html` | `(analysis: dict, warnings: list[str], source: str) -> str` | Build the full desktop HTML page |
+| `render_mobile_html` | `(analysis: dict, warnings: list[str], source: str) -> str` | Build the reduced mobile HTML page (see §12) |
 
 ---
 
@@ -400,12 +409,14 @@ There is no formal test suite; verification is done by generating and inspecting
 The standard loop after any change:
 
 ```bash
-# 1. Generate from a demo CSV
-python sleep_dashboard.py sleep_demo.csv -o out.html
+# 1. Generate from a demo CSV (writes both the desktop and mobile files)
+python sleep_dashboard.py sleep_demo.csv -o out.html -m out-mobile.html
 
-# 2. Extract the inlined <script> and syntax-check it (needs node)
+# 2. Extract the inlined <script> from each and syntax-check it (needs node)
 python -c "import re;open('/tmp/d.js','w').write(re.search(r'<script>(.*?)</script>',open('out.html').read(),re.S).group(1))"
 node --check /tmp/d.js
+python -c "import re;open('/tmp/m.js','w').write(re.search(r'<script>(.*?)</script>',open('out-mobile.html').read(),re.S).group(1))"
+node --check /tmp/m.js
 #    (To check a single JS component before generating, lint it directly:
 #     node --check qdvchealthdash_lib/assets/js/punctuality.js — but note the
 #     components share one scope, so cross-file references only resolve once
@@ -487,3 +498,72 @@ the ladder (benchmarks) and across the two thresholds.
 - Internal benchmark codes (A–E) and TAT are **never shown to the user**.
 - **Jinja2 is the one third‑party runtime dependency** (in `requirements.txt`).
   Don't add others without good reason; everything else is standard library.
+
+---
+
+## 12. The mobile output (`sleep-mobile.html`)
+
+The generator emits **two** files from one `analyse()` result: the full desktop
+dashboard (`render_html`, §4) and a reduced **mobile summary**
+(`render_mobile_html`). The mobile page is deliberately *not* feature parity —
+it is a phone-friendly digest that keeps the desktop branding (same tokens,
+same literal-hex time-of-day palette, same persona modal) but shows only the
+essentials.
+
+### What the mobile page includes
+- A compact score chip (arc + verdict + the three component scores).
+- **Decision support**, simplified: the same Targeted-Asleep-Time recipe (§6)
+  but fixed at the *moderate* ambition level, with **no slider** — the plan is
+  computed once at load.
+- **When you slept** — the clock-time chart only (`renderClock`), with an
+  in-card toggle for *Last 7 days / Weekly means / Monthly means* (no medians,
+  no duration chart).
+- **Bedtime punctuality** — `renderPunctuality` with a *Weekly / Monthly*
+  toggle, **benchmarks only** (no thresholds tabs).
+- **Archetypes & personas** — the past-7-nights records as a compact card list
+  (not the wide desktop table), each opening the shared persona modal; the
+  reference grid is parked in its own pop-up (the "Sleep persona reference"
+  button).
+- A **sticky segmented nav** (Tonight / When you sleep / Punctuality / Personas)
+  with tap-to-jump + scroll-spy, and the light/dark toggle in the header.
+
+It intentionally **omits** the desktop-only chrome: the right sidebar, the
+duration chart, the medians and thresholds variants, the histogram, the
+weekday-averages chart, the at-a-glance stat grid, and the colour-palette modal.
+
+### How it is wired (mirrors §2/§4, subset manifests)
+- **Template:** `assets/templates/page_mobile.html.jinja` (same autoescaping and
+  `| safe` rules as the desktop template — §8). It keeps the ids the reused JS
+  reads (`clock`, `punct`, `punctLegend`, `punctTitle`, `clockTitle`,
+  `dsTimeline`, `dsNotes`, `personaModal` + fields, `scoreArc`, `themeToggle`).
+- **CSS:** `_MOBILE_CSS_FILES` in `assets.py`, loaded via `load_mobile_css()`.
+  It reuses `tokens`, `palette-modal` (the shared modal shell), `persona`,
+  `charts`, `decision-support`, and `reference-table`, then adds `mobile.css`
+  **last** so its layout wins. `mobile.css` carries the `__FONT_STACK__`
+  placeholder just like the desktop blob.
+- **JS:** `_MOBILE_JS_FILES`, loaded via `load_mobile_js()`. It reuses
+  `data.js`, `helpers.js`, `chart-clock.js`, `punctuality.js`,
+  `persona-modal.js`, and `theme.js` **verbatim**, and adds two mobile-only
+  files: `decision-support-mobile.js` (the slider-free moderate plan) and
+  `mobile-glue.js` (the segmented nav, the two in-card toggles, the per-night
+  list, and the reference-table modal). Every feature block in `mobile-glue.js`
+  guards on the presence of its host element, so reusing desktop components that
+  self-run at load (e.g. `punctuality.js` binding `#punctTabs`, absent here) is
+  harmless.
+
+### Change recipes (mobile)
+- **Restyle the mobile shell** → edit `assets/css/mobile.css` (or the shared
+  component if the change should also affect desktop).
+- **Change which timing/punctuality views the mobile toggles offer** → edit the
+  toggle buttons in `page_mobile.html.jinja` and the matching handler in
+  `mobile-glue.js`; the underlying `buildView` / `renderClock` /
+  `renderPunctuality` already support all the views.
+- **Add a mobile section** → add the section + a `.m-nav-btn` (with a
+  `data-target` matching the section id) in `page_mobile.html.jinja`; the
+  scroll-spy picks it up automatically.
+- **Change the mobile Decision-support ambition** → edit `PULL` in
+  `decision-support-mobile.js` (the `TAT_*` config still flows from config.py).
+
+After editing any mobile asset or template, regenerate and `node --check` the
+inlined mobile script too (see §9) — the mobile bundle is a different
+concatenation and can break independently of the desktop one.

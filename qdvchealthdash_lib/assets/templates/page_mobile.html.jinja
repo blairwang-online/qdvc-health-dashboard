@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleep Health Dashboard — Mobile</title>
+<style>
+{{ styles | safe }}
+</style>
+</head>
+<body class="mobile">
+<div class="mwrap">
+
+  <header class="m-top">
+    <div>
+      <div class="eyebrow">Sleep Health · {{ a.date_from }} → {{ a.date_to }}</div>
+      <h1>Your sleep, at a glance</h1>
+      <div class="sub">{{ a.recorded }} nights · {{ a.coverage }}% coverage</div>
+    </div>
+    <div class="m-theme">
+      <button id="themeToggle" class="theme-btn" type="button"
+              aria-label="Toggle light and dark mode">
+        <span class="theme-ico theme-ico-sun">☀</span>
+        <span class="theme-ico theme-ico-moon">☾</span>
+        <span class="theme-knob"></span>
+      </button>
+    </div>
+  </header>
+
+  <section class="m-score">
+    <div class="m-gauge">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <defs>
+          <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--dawn1)"/>
+            <stop offset="0.5" stop-color="var(--dawn2)"/>
+            <stop offset="1" stop-color="var(--dawn3)"/>
+          </linearGradient>
+        </defs>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="var(--line)" stroke-width="12"/>
+        <circle id="scoreArc" class="arc-fg" cx="60" cy="60" r="50" fill="none"
+                stroke="url(#arc)" stroke-width="12" stroke-linecap="round"
+                transform="rotate(-90 60 60)"/>
+      </svg>
+      <div class="val"><span class="num">{{ score }}</span><span class="of">/ 100</span></div>
+    </div>
+    <div class="m-score-text">
+      <div class="verdict">{{ verdict }}</div>
+      <div class="breakdown">
+        <div><b>{{ a.dur_score }}</b>Duration</div>
+        <div><b>{{ a.cons_score }}</b>Consistency</div>
+        <div><b>{{ a.reg_score }}</b>Regularity</div>
+      </div>
+    </div>
+  </section>
+
+  <nav class="m-nav" aria-label="Sections">
+    <div class="m-nav-track">
+      <button class="m-nav-btn active" type="button" data-target="m-decision">Tonight</button>
+      <button class="m-nav-btn" type="button" data-target="m-timing">When you sleep</button>
+      <button class="m-nav-btn" type="button" data-target="m-punctuality">Punctuality</button>
+      <button class="m-nav-btn" type="button" data-target="m-archetypes">Personas</button>
+    </div>
+  </nav>
+
+  <section id="m-decision" class="m-section">
+    <h2>Decision support</h2>
+    <p class="cap">A realistic wind-down plan for tonight, based on your recent
+      sleep pattern — a gentle guide, no pressure.</p>
+    <div class="ds-body">
+      <div class="ds-timeline" id="dsTimeline"><!-- steps injected --></div>
+      <div class="ds-notes" id="dsNotes"><!-- notes injected --></div>
+    </div>
+  </section>
+
+  <section id="m-timing" class="m-section">
+    <h2>When you slept</h2>
+    <p class="cap">Your sleep as actual clock time. Switch between recent nights
+      and weekly or monthly means.</p>
+    <div class="m-toggle" id="timingToggle" role="tablist">
+      <button class="tab active" role="tab" data-view="last7">Last 7 days</button>
+      <button class="tab" role="tab" data-view="means">Weekly means</button>
+      <button class="tab" role="tab" data-view="mmeans">Monthly means</button>
+    </div>
+    <div class="m-chart-title" id="clockTitle">When you slept — nightly clock time</div>
+    <div id="clock"></div>
+  </section>
+
+  <section id="m-punctuality" class="m-section">
+    <h2>Bedtime punctuality</h2>
+    <p class="cap">How often you were in bed by each target time — higher is
+      better. Each line is a rung of a 30-minute ladder around your typical
+      bedtime.</p>
+    <div class="m-toggle" id="punctToggle" role="tablist">
+      <button class="tab active" role="tab" data-pview="weekly">Weekly</button>
+      <button class="tab" role="tab" data-pview="monthly">Monthly</button>
+    </div>
+    <div class="m-chart-title" id="punctTitle">Weekly success rate — benchmarks</div>
+    <div id="punct"></div>
+    <div class="punct-legend" id="punctLegend"></div>
+  </section>
+
+  <section id="m-archetypes" class="m-section">
+    <h2>Archetypes &amp; personas</h2>
+    <p class="cap">Each of the past 7 nights, classified by when you fell asleep
+      and when you woke. Tap a persona for details.</p>
+    <div class="m-arch-list" id="archetypeList"></div>
+    <button id="refOpen" class="m-refbtn" type="button">
+      Sleep persona reference
+    </button>
+  </section>
+
+  <div class="m-foot">
+    Generated from {{ source }} · not medical advice.
+    {% if warn_html %}{{ warn_html | safe }}{% endif %}
+  </div>
+</div>
+
+<div id="personaModal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="personaTitle">
+    <div class="modal-head persona-head" id="personaHead">
+      <div class="persona-head-main">
+        <span class="persona-icon-slot" id="personaIcon"></span>
+        <div>
+          <div class="persona-eyebrow">Sleep persona</div>
+          <h2 id="personaTitle">—</h2>
+        </div>
+      </div>
+      <button id="personaClose" class="modal-close" type="button"
+              aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="persona-tags" id="personaTags"></div>
+      <div class="persona-hours" id="personaHours"></div>
+      <div class="persona-section">
+        <h3>About this persona</h3>
+        <p id="personaDetail"></p>
+      </div>
+      <div class="persona-section">
+        <h3>Health considerations</h3>
+        <p id="personaHealth"></p>
+        <p class="persona-disclaimer">General guidance based on your archetype —
+          not medical advice. If sleep is regularly affecting how you feel, a
+          clinician can offer personalised help.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="refModal" class="modal-overlay m-ref-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="refTitle">
+    <div class="modal-head">
+      <h2 id="refTitle">Sleep persona reference</h2>
+      <button id="refClose" class="modal-close" type="button"
+              aria-label="Close">✕</button>
+    </div>
+    <p class="modal-sub">How the two archetypes combine. Tap any persona for
+      details.</p>
+    <div class="modal-body">
+      {{ reference_table | safe }}
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="dashboard-data">{{ data_json | safe }}</script>
+<script type="application/json" id="persona-cards">{{ persona_cards_json | safe }}</script>
+<script>
+{{ scripts | safe }}
+</script>
+</body>
+</html>

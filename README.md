@@ -27,6 +27,11 @@ extending or modifying the dashboard.
   *Nocturnal Voltaire*), each with its own explanation and health notes.
 - A cohesive **time‑of‑day colour scheme**, **light/dark mode** (auto by hour),
   and a right‑hand navigation sidebar.
+- A separate **mobile summary** (`sleep-mobile.html`) — a phone-friendly digest
+  that keeps the same colours and personas but shows only the essentials:
+  a simplified Decision support, the when‑you‑slept clock chart (last 7 days /
+  weekly / monthly means), weekly & monthly punctuality benchmarks, and the
+  past‑7‑nights persona list (with the reference grid in a pop‑up).
 
 ## Setup
 
@@ -45,11 +50,12 @@ runtime dependencies — Jinja is only used while producing it.
 ## Quick start
 
 ```bash
-python sleep_dashboard.py path/to/sleep.csv -o dashboard.html
+python sleep_dashboard.py path/to/sleep.csv -o sleep-desktop.html -m sleep-mobile.html
 ```
 
-Then open `dashboard.html` in your browser. With no arguments it looks for
-`sleep.csv` in the current directory and writes `sleep_dashboard.html`.
+Then open `sleep-desktop.html` (full dashboard) or `sleep-mobile.html` (phone
+summary) in your browser. With no arguments it looks for `sleep.csv` in the
+current directory and writes `sleep-desktop.html` and `sleep-mobile.html`.
 
 ## CSV format
 
